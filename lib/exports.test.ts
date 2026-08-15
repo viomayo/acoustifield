@@ -5,8 +5,11 @@ import {
   buildPhotosZipAll,
   buildProjectCsvZip,
   csvCell,
+  decimalCell,
   downloadBlob,
+  downloadCSV,
   downloadText,
+  encodeWindows1252,
   exportBasename,
   ficheToCSV,
   ficheToJSON,
@@ -61,10 +64,10 @@ describe('exports', () => {
     expect(slugify('  Site   étonnant  ')).toBe('site-etonnant')
   })
 
-  it('builds an Excel-friendly CSV with BOM, semicolons and metadata', () => {
+  it('builds an Excel-friendly CSV with semicolons and metadata', () => {
     const csv = ficheToCSV(makeFiche(), 2, { id: 'user-b', name: 'Bob' })
-    expect(csv.startsWith('\uFEFF')).toBe(true)
-    const [header, row] = csv.slice(1).split('\r\n')
+    expect(csv.startsWith('\uFEFF')).toBe(false)
+    const [header, row] = csv.split('\r\n')
     const columns = header.split(';')
     const cells = row.split(';')
     const at = (name: string) => columns.indexOf(name)
@@ -80,9 +83,57 @@ describe('exports', () => {
     expect(cells[at('mis_a_jour_le')]).toBe('2026-08-14T21:00:00.000Z')
   })
 
+  it('exports decimal coordinates and measures with a comma separator', () => {
+    const csv = ficheToCSV(makeFiche(), 1)
+    const [header, row] = csv.split('\r\n')
+    const columns = header.split(';')
+    const cells = parseCsvRow(row)
+    const at = (name: string) => columns.indexOf(name)
+    expect(cells[at('lat')]).toBe('50,8333')
+    expect(cells[at('lon')]).toBe('4,4667')
+    expect(cells[at('hauteur_pose_m')]).toBe('3,5')
+    expect(cells[at('temperature_c')]).toBe('18')
+    expect(cells[at('orientation_deg')]).toBe('')
+  })
+
+  it('formats decimal numbers with a comma and empty values as empty cells', () => {
+    expect(decimalCell(3.5)).toBe('3,5')
+    expect(decimalCell(18)).toBe('18')
+    expect(decimalCell(-1.25)).toBe('-1,25')
+    expect(decimalCell(null)).toBe('')
+    expect(decimalCell(undefined)).toBe('')
+  })
+
+  it('encodes French accents and special characters to Windows-1252 bytes', () => {
+    const bytes = encodeWindows1252('Élise Météo — Étang de la Hulotte (cœur)')
+    expect(bytes[0]).toBe(0xc9)
+    expect(Array.from(bytes)).toContain(0x97)
+    expect(Array.from(bytes)).toContain(0x9c)
+    expect(new TextDecoder('windows-1252').decode(bytes)).toBe('Élise Météo — Étang de la Hulotte (cœur)')
+  })
+
+  it('replaces characters outside Windows-1252 with a question mark', () => {
+    expect(Array.from(encodeWindows1252('A😀B'))).toEqual([0x41, 0x3f, 0x3f, 0x42])
+  })
+
+  it('exports a CSV that round-trips through Windows-1252 losslessly', () => {
+    const csv = ficheToCSV(makeFiche({ siteNom: 'Étang de la Hulotte', operateur: 'Élise Météo' }), 1)
+    expect(csv.includes('Étang')).toBe(true)
+    expect(new TextDecoder('windows-1252').decode(encodeWindows1252(csv))).toBe(csv)
+  })
+
+  it('stores project CSV files in the zip as Windows-1252 bytes', async () => {
+    const csv = ficheToCSV(makeFiche({ siteNom: 'Étang de la Hulotte' }), 1)
+    const blob = await buildProjectCsvZip([{ projet: 'Suivi des chiroptères', csv }])
+    const zip = await JSZip.loadAsync(blob)
+    const inner = await zip.file('Suivi des chiroptères.csv')!.async('uint8array')
+    expect(inner[0]).not.toBe(0xef)
+    expect(new TextDecoder('windows-1252').decode(inner)).toBe(csv)
+  })
+
   it('escapes comment cells and flags a full SD card', () => {
     const csv = ficheToCSV(makeFiche({ carteSdPleine: true, commentaires: 'a;b' }), 1)
-    const [headerLine, rowLine] = csv.slice(1).split('\r\n')
+    const [headerLine, rowLine] = csv.split('\r\n')
     const cells = parseCsvRow(rowLine)
     const columns = headerLine.split(';')
     expect(cells[columns.indexOf('carte_sd_pleine')]).toBe('1')
@@ -130,7 +181,7 @@ describe('exports', () => {
       'Projet A - 2026-08-14 - Étang de la Hulotte - Opérateur - 01.jpg',
       'Projet A - 2026-08-14 - Étang de la Hulotte - Opérateur - 02.jpg',
     ])
-    const [header, row] = csv.slice(1).split('\r\n')
+    const [header, row] = csv.split('\r\n')
     const cells = parseCsvRow(row)
     const columns = header.split(';')
     expect(columns).toContain('photos')
@@ -171,8 +222,8 @@ describe('exports', () => {
       { fiche: makeFiche(), photoCount: 2, userName: 'Bob' },
       { fiche: makeFiche({ id: 'fiche-2', siteNom: 'Autre site', boitierNum: 'B2' }), photoCount: 0 },
     ])
-    expect(csv.startsWith('\uFEFF')).toBe(true)
-    const [header, row1, row2] = csv.slice(1).split('\r\n')
+    expect(csv.startsWith('\uFEFF')).toBe(false)
+    const [header, row1, row2] = csv.split('\r\n')
     const columns = header.split(';')
     const at = (name: string) => columns.indexOf(name)
     expect(row1.split(';')[at('user_name')]).toBe('Bob')
@@ -234,5 +285,23 @@ describe('exports', () => {
     click.mockClear()
     downloadBlob(new Blob(['x']), 'file.bin')
     expect(click).toHaveBeenCalledOnce()
+  })
+
+  it('downloads CSV content as Windows-1252 bytes', () => {
+    let capturedBlob: Blob | undefined
+    const createObjectURL = vi.fn((blob: Blob) => {
+      capturedBlob = blob
+      return 'blob:csv'
+    })
+    const revokeObjectURL = vi.fn()
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createObjectURL })
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revokeObjectURL })
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    click.mockClear()
+
+    downloadCSV('Élise;50,8', 'fiche.csv')
+    expect(capturedBlob?.type).toBe('text/csv;charset=windows-1252')
+    expect(click).toHaveBeenCalledOnce()
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:csv')
   })
 })

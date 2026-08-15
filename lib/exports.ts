@@ -9,6 +9,32 @@ export function csvCell(value: string | number | null | undefined): string {
   return /[;",\n\r]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
 }
 
+export function decimalCell(value: number | null | undefined): string {
+  return value == null ? '' : String(value).replace('.', ',')
+}
+
+const WINDOWS_1252_HIGH: Readonly<Record<string, number>> = {
+  '\u20AC': 0x80, '\u201A': 0x82, '\u0192': 0x83, '\u201E': 0x84, '\u2026': 0x85,
+  '\u2020': 0x86, '\u2021': 0x87, '\u02C6': 0x88, '\u2030': 0x89, '\u0160': 0x8A,
+  '\u2039': 0x8B, '\u0152': 0x8C, '\u017D': 0x8E, '\u2018': 0x91, '\u2019': 0x92,
+  '\u201C': 0x93, '\u201D': 0x94, '\u2022': 0x95, '\u2013': 0x96, '\u2014': 0x97,
+  '\u02DC': 0x98, '\u2122': 0x99, '\u0161': 0x9A, '\u203A': 0x9B, '\u0153': 0x9C,
+  '\u017E': 0x9E, '\u0178': 0x9F,
+}
+
+export function encodeWindows1252(text: string): Uint8Array<ArrayBuffer> {
+  const bytes = new Uint8Array(text.length)
+  for (let i = 0; i < text.length; i += 1) {
+    const code = text.charCodeAt(i)
+    if (code <= 0x7f || (code >= 0xa0 && code <= 0xff)) {
+      bytes[i] = code
+    } else {
+      bytes[i] = WINDOWS_1252_HIGH[text[i]] ?? 0x3f
+    }
+  }
+  return bytes
+}
+
 const CSV_HEADER = [
   'fiche_id', 'user_id', 'user_name', 'date_debut_nuit', 'appareil_type', 'boitier_num', 'micro_num',
   'carte_sd_pleine', 'projet', 'operateur', 'site_nom', 'lat', 'lon', 'commune',
@@ -33,8 +59,8 @@ function csvRow(fiche: FicheData, photoCount: number, user?: CsvUser, photoNames
     fiche.projet,
     fiche.operateur,
     fiche.siteNom,
-    fiche.lat,
-    fiche.lon,
+    decimalCell(fiche.lat),
+    decimalCell(fiche.lon),
     fiche.commune,
     fiche.surElement,
     fiche.surElementAutre,
@@ -45,9 +71,9 @@ function csvRow(fiche: FicheData, photoCount: number, user?: CsvUser, photoNames
     fiche.habitatSecondaireAutre,
     fiche.gestion,
     fiche.eclairage,
-    fiche.hauteurPoseM,
-    fiche.orientationDeg,
-    fiche.temperatureC,
+    decimalCell(fiche.hauteurPoseM),
+    decimalCell(fiche.orientationDeg),
+    decimalCell(fiche.temperatureC),
     fiche.typeNuit,
     fiche.conditionsMeteo.join('|'),
     fiche.commentaires,
@@ -60,7 +86,7 @@ function csvRow(fiche: FicheData, photoCount: number, user?: CsvUser, photoNames
 
 export function ficheToCSV(fiche: FicheData, photoCount: number, user?: CsvUser, photoNames: string[] = []): string {
   const body = csvRow(fiche, photoCount, user, photoNames).map(csvCell).join(';')
-  return `\uFEFF${[CSV_HEADER.join(';'), body].join('\r\n')}`
+  return [CSV_HEADER.join(';'), body].join('\r\n')
 }
 
 export interface FicheExportRow {
@@ -74,7 +100,7 @@ export function fichesToCSV(rows: FicheExportRow[]): string {
   const body = rows.map(({ fiche, photoCount, userName, photoNames }) =>
     csvRow(fiche, photoCount, userName != null ? { name: userName } : undefined, photoNames ?? []).map(csvCell).join(';'),
   )
-  return `\uFEFF${[CSV_HEADER.join(';'), ...body].join('\r\n')}`
+  return [CSV_HEADER.join(';'), ...body].join('\r\n')
 }
 
 export function ficheToJSON(fiche: FicheData, photos: Array<{ id: string; mimeType: string; storagePath: string | null }>, exportedAt = new Date().toISOString()): string {
@@ -146,7 +172,7 @@ export async function buildProjectCsvZip(groups: ProjectCsvGroup[]): Promise<Blo
       counter += 1
     }
     usedNames.add(unique)
-    zip.file(`${unique}.csv`, group.csv)
+    zip.file(`${unique}.csv`, encodeWindows1252(group.csv))
   }
   return zip.generateAsync({ type: 'blob' })
 }
@@ -170,6 +196,15 @@ export function exportBasename(fiche: Pick<FicheData, 'projet' | 'dateDebutNuit'
 
 export function downloadText(content: string, filename: string, mime: string) {
   const url = URL.createObjectURL(new Blob([content], { type: mime }))
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  anchor.click()
+  URL.revokeObjectURL(url)
+}
+
+export function downloadCSV(content: string, filename: string) {
+  const url = URL.createObjectURL(new Blob([encodeWindows1252(content)], { type: 'text/csv;charset=windows-1252' }))
   const anchor = document.createElement('a')
   anchor.href = url
   anchor.download = filename

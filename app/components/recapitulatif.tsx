@@ -35,6 +35,7 @@ import {
   buildPhotosZipAll,
   buildProjectCsvZip,
   downloadBlob,
+  downloadCSV,
   downloadText,
   exportBasename,
   ficheToCSV,
@@ -184,7 +185,7 @@ export default function Recapitulatif() {
   function handleExportCSV(fiche: FicheData | RemoteFicheData, photos: PhotoData[], userName?: string | null) {
     const local = fiche as FicheData
     const csv = ficheToCSV(local, photos.length, { name: userName }, photos.map((p) => photoFileName(local, p.position)))
-    downloadText(csv, `${exportBasename(local)}.csv`, 'text/csv;charset=utf-8')
+    downloadCSV(csv, `${exportBasename(local)}.csv`)
   }
 
   async function handleExportZIP(fiche: FicheData | RemoteFicheData, photos: PhotoData[]) {
