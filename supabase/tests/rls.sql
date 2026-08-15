@@ -7,8 +7,8 @@ select has_function('public', 'current_user_is_supervisor', array[]::text[], 'sa
 select has_function('public', 'sync_fiche_snapshot', array['jsonb', 'bigint', 'boolean'], 'snapshot RPC exists');
 select has_table('public', 'fiches', 'fiches exists');
 select has_table('public', 'photos', 'photos exists');
-select ok(row_security_active('public.fiches'), 'fiches RLS is active');
-select ok(row_security_active('public.photos'), 'photos RLS is active');
+select ok((select relrowsecurity from pg_class where oid = 'public.fiches'::regclass), 'fiches RLS is active');
+select ok((select relrowsecurity from pg_class where oid = 'public.photos'::regclass), 'photos RLS is active');
 select policies_are('public', 'fiches', array['fiche_delete', 'fiche_insert', 'fiche_select', 'fiche_update']);
 select policies_are('public', 'photos', array['photo_delete', 'photo_insert', 'photo_select', 'photo_update']);
 
