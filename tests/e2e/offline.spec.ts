@@ -222,6 +222,7 @@ test('valide le parcours fiche de pose intégré de la readiness au logout offli
   await goOffline(page, context)
   await page.getByRole('button', { name: 'Se déconnecter' }).click()
   await expect(page.getByText('Application verrouillée.')).toBeVisible()
+  await expect.poll(async () => (await readLocalData(page)).profile?.offlineEnabled).toBe(false)
   await page.goto('/')
   await expect(page.getByText('Application verrouillée.')).toBeVisible()
 
