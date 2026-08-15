@@ -459,6 +459,7 @@ export default function FicheForm() {
 
       <Section title="Commentaires">
         <textarea
+          aria-label="Commentaires"
           value={fiche.commentaires}
           onChange={(e) => update('commentaires', e.target.value)}
           rows={4}

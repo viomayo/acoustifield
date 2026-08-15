@@ -52,7 +52,7 @@ function identityFromUser(user: User): LocalIdentity {
 
 async function fetchProfileName(supabase: SupabaseClient, userId: string): Promise<string | null> {
   try {
-    const { data } = await supabase.from('profiles').select('nom').eq('id', userId).maybeSingle()
+    const { data } = await supabase.from('profiles').select('nom').eq('id', userId).maybeSingle().retry(false)
     const nom = (data as { nom?: string | null } | null)?.nom?.trim()
     return nom || null
   } catch {

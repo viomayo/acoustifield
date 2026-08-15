@@ -17,7 +17,7 @@ vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
     auth: { getUser: mocks.getUser, signOut: mocks.signOut },
     from: () => ({
-      select: () => ({ eq: () => ({ maybeSingle: mocks.profileRow }) }),
+      select: () => ({ eq: () => ({ maybeSingle: () => ({ retry: () => mocks.profileRow() }) }) }),
       upsert: mocks.upsert,
     }),
   }),

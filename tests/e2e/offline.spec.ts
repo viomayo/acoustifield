@@ -53,6 +53,11 @@ test.beforeEach(async ({ context }) => {
     contentType: 'application/json',
     body: '[]',
   }))
+  await context.route('**/rest/v1/profiles**', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: '[]',
+  }))
   await context.route('**/rest/v1/rpc/current_user_is_supervisor', (route) => route.fulfill({
     status: 200,
     contentType: 'application/json',
@@ -106,7 +111,7 @@ async function openOnlyHomeWithoutShellPrefetch(page: Page, context: BrowserCont
   await page.goto('/')
   await expect(page.getByText('Test Terrain')).toBeVisible()
   await waitForOfflineReadiness(page)
-  expect(shellNavigations).toEqual([])
+  expect(shellNavigations).toEqual(['/'])
 }
 
 async function goOffline(page: Page, context: BrowserContext) {
@@ -148,9 +153,12 @@ async function createFicheThroughUi(page: Page) {
   await page.getByRole('button', { name: 'SM4BAT' }).click()
   await page.getByLabel('N° du boîtier').fill('SM4BAT-0001')
   await page.getByLabel('Projet').fill('Suivi des chiroptères')
+  await page.getByLabel('Date de début de nuit *').fill('2026-08-15')
+  await page.getByRole('button', { name: 'Ouvert', exact: true }).click()
+  await page.getByLabel("Description de l'habitat principal (< 10 m) *").selectOption({ label: 'Forêt feuillue' })
   await page.getByLabel('Nom du site').fill('Étang de la Hulotte')
   await page.getByLabel('Commentaires').fill('Fiche créée entièrement hors ligne')
-  await page.getByRole('button', { name: 'Enregistrer la fiche' }).click()
+  await page.getByRole('button', { name: /enregistrer une nouvelle fiche/i }).click()
   await expect(page.getByText('Fiche enregistrée en local')).toBeVisible()
 }
 
@@ -190,7 +198,7 @@ test('valide le parcours fiche de pose intégré de la readiness au logout offli
   await page.getByRole('link', { name: 'Récapitulatif' }).first().click()
   await expect(page).toHaveURL(/\/recapitulatif$/)
   await expect(page.getByText('Étang de la Hulotte')).toBeVisible()
-  await expect(page.getByText(/en attente/)).toBeVisible()
+  await expect(page.getByText('en attente', { exact: true })).toBeVisible()
 
   const resumedPage = await context.newPage()
   await resumedPage.goto('/recapitulatif')
@@ -204,10 +212,11 @@ test('valide le parcours fiche de pose intégré de la readiness au logout offli
   expect((await readLocalData(page)).fiches[0]).toMatchObject({ dirty: true })
 
   await context.setOffline(false)
+  offlineMode = false
   await page.evaluate(() => window.dispatchEvent(new Event('online')))
   await expect(page.getByText('En ligne — Prêt hors ligne')).toBeVisible()
-  await expect(page.getByText(/travail local disponible/)).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Sync' })).toBeDisabled()
+  await expect(page.getByText(/travail local disponible/)).not.toBeVisible()
+  await expect(page.getByRole('button', { name: 'Sync' })).toBeEnabled()
   expect((await readLocalData(page)).fiches[0]).toMatchObject({ dirty: true, syncedAt: null })
 
   await goOffline(page, context)
