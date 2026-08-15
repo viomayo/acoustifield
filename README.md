@@ -74,7 +74,7 @@ Le schéma versionné se trouve dans `supabase/migrations/`. Les migrations ajou
 - tables `fiches` et `photos` avec RLS propriétaire (+ lecture superviseur), révision incrémentale et RPC transactionnelle `sync_fiche_snapshot()` ;
 - bucket de stockage privé `photos` avec politiques par dossier utilisateur.
 
-Toutes les migrations ont été appliquées manuellement au projet Supabase distant `acoustifield` (`kiknpogoreznmgdtpkoh`) le 14 août 2026. Les migrations `202608150000_habitat_autre.sql` (précisions libres pour les habitats « Autre ») et `202608150001_orientation_deg.sql` (orientation de l'enregistreur) sont prêtes mais pas encore appliquées au projet distant, dans cet ordre (000 puis 001). Pour une prochaine migration :
+Toutes les migrations ont été appliquées manuellement au projet Supabase distant `acoustifield` (`kiknpogoreznmgdtpkoh`) le 15 août 2026, dans l'ordre `202608140000`, `202608140001`, `202608140002`, `202608150000` (précisions libres pour les habitats « Autre ») et `202608150001` (orientation de l'enregistreur). Pour une prochaine migration :
 
 ```bash
 supabase start
@@ -86,6 +86,14 @@ supabase db push
 ```
 
 Ne pas exécuter les deux dernières commandes sans sauvegarde vérifiée et validation explicite du propriétaire du projet.
+
+### Déploiement
+
+- Production : [https://acoustifield.vercel.app](https://acoustifield.vercel.app)
+- Dépôt : [https://github.com/viomayo/acoustifield](https://github.com/viomayo/acoustifield)
+- CI : GitHub Actions (`.github/workflows/ci.yml`) — lint, typecheck, tests + couverture, build, audit npm, Playwright et tests Supabase sur chaque push.
+- Vercel : projet relié au dépôt, framework Next.js auto-détecté. Deux variables d'environnement à renseigner dans Vercel : `NEXT_PUBLIC_SUPABASE_URL` et `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (copiées depuis `.env.local`). `NEXT_PUBLIC_OFFLINE_SHELL_VERSION` est injectée automatiquement par `next.config.ts`.
+- Chaque push sur `main` déclenche la CI, puis Vercel redéploie automatiquement sur succès.
 
 ### Authentification Google
 
@@ -109,6 +117,6 @@ Une déconnexion volontaire verrouille immédiatement l'interface, désactive le
 
 La synchronisation automatique ne démarre qu'après confirmation distante de l'identité. Au retour du réseau, le provider revalide d'abord Supabase ; les états `offline` et `expired` ne déclenchent aucun appel métier distant. Les fiches `dirty`, tombstones, révisions et conflits suivent ensuite exactement le même flux que le bouton Sync.
 
-## Démo et auteurs
+## Auteurs
 
-[Démo (ancien déploiement du prédécesseur Chiroptère BXL)](https://chiroptere-bxl.vercel.app) · [@viomayo](https://github.com/viomayo) · [@thedasken](https://github.com/thedasken)
+[@viomayo](https://github.com/viomayo) · [@thedasken](https://github.com/thedasken) · Ancien déploiement du prédécesseur Chiroptère BXL : [chiroptere-bxl.vercel.app](https://chiroptere-bxl.vercel.app)

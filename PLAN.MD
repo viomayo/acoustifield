@@ -29,8 +29,11 @@
 - [fait] Migrations `202608140000_acoustifield_base.sql`, `202608140001_profiles.sql` et `202608140002_acoustifield_fiches.sql` appliquées manuellement au Supabase distant (fait le 14 août 2026) et vérifiées.
 - [fait] Client OAuth Google mis en conformité : l'URI de redirection `https://kiknpogoreznmgdtpkoh.supabase.co/auth/v1/callback` est enregistré dans la Google Cloud Console et le secret renseigné dans Supabase (Auth > Providers > Google).
 - [fait] Login Google réel concluant (fait le 14 août 2026) ; en cas de `redirect_uri_mismatch` ou d'échec d'échange de code, relire `/auth/auth-code-error` et purger le localStorage/cookies du site.
-- [à faire] Appliquer les migrations distantes dans l'ordre : `202608150000_habitat_autre.sql` (colonnes `habitat_principal_autre` / `habitat_secondaire_autre` + RPC `sync_fiche_snapshot` mis à jour), puis `202608150001_orientation_deg.sql` (colonne `orientation_deg` + RPC mis à jour), puis vérifier un push/pull.
-- [à faire] Déployer l'application AcoustiField sur Vercel (nouveau projet, distinct de `chiroptere-bxl`), puis mettre à jour dans Supabase la « Site URL » et les « Redirect URLs » vers le domaine de production.
+- [fait] Migrations `202608150000_habitat_autre.sql` et `202608150001_orientation_deg.sql` appliquées manuellement au Supabase distant (fait le 15 août 2026), dans cet ordre, et vérifiées (colonnes présentes dans le Table Editor).
+- [fait] Dépôt GitHub `viomayo/acoustifield` créé (fait le 15 août 2026) et CI GitHub Actions active sur chaque push.
+- [fait] Déploiement Vercel en production : [https://acoustifield.vercel.app](https://acoustifield.vercel.app) (fait le 15 août 2026), avec `NEXT_PUBLIC_SUPABASE_URL` et `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` renseignées.
+- [fait] « Site URL » et « Redirect URLs » de Supabase (Auth > URL Configuration) configurées vers `https://acoustifield.vercel.app` (fait le 15 août 2026).
+- [à faire] Valider le login Google en production sur `https://acoustifield.vercel.app` (en cas d'échec, relire `/auth/auth-code-error` et purger le localStorage/cookies du site).
 - [à faire] Refaire une recette réelle sur iOS Safari et Android installés en PWA une fois le déploiement de production actif.
 
 ## Évolutions produit possibles
