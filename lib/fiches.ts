@@ -1,4 +1,5 @@
 export const DRAFT_KEY = 'acoustifield_draft_v1'
+export const LAST_PROJECT_KEY = 'acoustifield_last_project_v1'
 
 export interface FicheData {
   id: string
@@ -38,6 +39,7 @@ export interface FicheData {
 }
 
 export interface FicheDraft {
+  id?: string
   appareilType: string
   boitierNum: string
   microNum: string
@@ -196,6 +198,7 @@ export function defaultFiche(ownerId: string): FicheData {
 
 export function draftFromFiche(fiche: FicheData, photoCount: number): FicheDraft {
   return {
+    id: fiche.id,
     appareilType: fiche.appareilType,
     boitierNum: fiche.boitierNum,
     microNum: fiche.microNum,
@@ -238,6 +241,7 @@ export function loadDraft(): Partial<FicheDraft> | null {
     const parsed = JSON.parse(raw) as Record<string, unknown>
     if (!parsed || typeof parsed !== 'object') return null
     return {
+      ...(isString(parsed.id) && parsed.id ? { id: parsed.id } : {}),
       appareilType: isString(parsed.appareilType) ? parsed.appareilType : '',
       boitierNum: isString(parsed.boitierNum) ? parsed.boitierNum : '',
       microNum: isString(parsed.microNum) ? parsed.microNum : '',
@@ -279,6 +283,34 @@ export function saveDraft(draft: FicheDraft): void {
 export function clearDraft(): void {
   if (typeof localStorage === 'undefined') return
   localStorage.removeItem(DRAFT_KEY)
+}
+
+export function getLastProject(): string {
+  if (typeof localStorage === 'undefined') return ''
+  try {
+    return localStorage.getItem(LAST_PROJECT_KEY) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+export function saveLastProject(projet: string): void {
+  if (typeof localStorage === 'undefined') return
+  try {
+    if (projet.trim()) localStorage.setItem(LAST_PROJECT_KEY, projet)
+    else localStorage.removeItem(LAST_PROJECT_KEY)
+  } catch {
+    // stockage indisponible — ignoré
+  }
+}
+
+export function clearLastProject(): void {
+  if (typeof localStorage === 'undefined') return
+  try {
+    localStorage.removeItem(LAST_PROJECT_KEY)
+  } catch {
+    // stockage indisponible — ignoré
+  }
 }
 
 export function ficheIsEmpty(draft: Partial<FicheDraft>): boolean {

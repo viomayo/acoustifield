@@ -16,13 +16,17 @@ import {
   SUR_ELEMENTS,
   TYPES_NUIT,
   clearDraft,
+  clearLastProject,
   defaultFiche,
   draftFromFiche,
   ficheIsEmpty,
+  getLastProject,
   loadDraft,
   parseCoordinates,
   saveDraft,
+  saveLastProject,
   type FicheData,
+  type FicheDraft,
 } from '@/lib/fiches'
 import { saveFiche, type PhotoData } from '@/lib/idb'
 import { reverseGeocode } from '@/lib/geo'
@@ -82,7 +86,7 @@ function TextInput({
         min={min}
         max={max}
         onChange={(e) => onChange(e.target.value)}
-        className="px-3 py-2 rounded-lg border border-foreground/10 bg-white text-sm text-foreground placeholder:text-foreground/40 focus:outline-none focus:ring-2 focus:ring-accent/40 w-full"
+        className="px-3 py-2 rounded-lg border border-foreground/10 bg-white text-sm text-foreground placeholder:text-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/40 w-full"
       />
       {hint && <span className="text-xs text-foreground/50">{hint}</span>}
     </label>
@@ -108,7 +112,7 @@ function SelectField({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="px-3 py-2 rounded-lg border border-foreground/10 bg-white text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent/40 w-full"
+        className="px-3 py-2 rounded-lg border border-foreground/10 bg-white text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-foreground/40 w-full"
       >
         <option value="">{placeholder}</option>
         {options.map((option) => (
@@ -125,17 +129,19 @@ function ChipGroup({
   value,
   onChange,
   multi = false,
+  gridClassName,
 }: {
   label: string
   options: readonly string[]
   value: string | string[]
   onChange: (next: string | string[]) => void
   multi?: boolean
+  gridClassName?: string
 }) {
   return (
     <div className="flex flex-col gap-1.5">
       <span className="text-xs font-medium text-foreground">{label}</span>
-      <div className="flex flex-wrap gap-1.5">
+      <div className={gridClassName ?? 'flex flex-wrap gap-1.5'}>
         {options.map((option) => {
           const selected = multi
             ? (value as string[]).includes(option)
@@ -159,7 +165,7 @@ function ChipGroup({
               className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors cursor-pointer flex-1 whitespace-nowrap ${
                 selected
                   ? 'bg-accent text-white border-accent'
-                  : 'border-foreground/15 bg-white text-foreground hover:border-accent/50'
+                  : 'border-foreground/15 bg-white text-foreground hover:border-foreground/40'
               }`}
             >
               {option}
@@ -174,15 +180,16 @@ function ChipGroup({
 export default function FicheForm() {
   const { user } = useOfflineAuth()
   const ownerId = user?.ownerId ?? ''
+  const [initialDraft] = useState<Partial<FicheDraft> | null>(() => loadDraft())
   const [fiche, setFiche] = useState<FicheData>(() => {
-    const draft = loadDraft()
     const base = defaultFiche(ownerId || 'preview')
-    if (draft) {
-      return { ...base, ...draft, createdAt: base.createdAt, updatedAt: base.updatedAt }
+    if (initialDraft) {
+      return { ...base, ...initialDraft, createdAt: base.createdAt, updatedAt: base.updatedAt }
     }
+    base.projet = getLastProject()
     return base
   })
-  const [photoCount, setPhotoCount] = useState<number>(() => loadDraft()?.photoCount ?? 0)
+  const [photoCount, setPhotoCount] = useState<number>(() => initialDraft?.photoCount ?? 0)
   const [showMap, setShowMap] = useState(false)
   const [showResetConfirm, setShowResetConfirm] = useState(false)
   const [reverseGeocoding, setReverseGeocoding] = useState(false)
@@ -207,6 +214,12 @@ export default function FicheForm() {
     setFiche((prev) => ({ ...prev, [key]: value, updatedAt: new Date().toISOString() }))
   }, [])
 
+  const [autoFilledFor, setAutoFilledFor] = useState<string | null>(null)
+  if (user?.displayName && autoFilledFor !== user.displayName) {
+    setAutoFilledFor(user.displayName)
+    setFiche((prev) => (prev.operateur ? prev : { ...prev, operateur: user.displayName as string }))
+  }
+
   const hasCoordinates = fiche.lat != null && fiche.lon != null
 
   useEffect(() => {
@@ -226,6 +239,7 @@ export default function FicheForm() {
   async function handleSave() {
     if (!ownerId) return
     const missing: string[] = []
+    if (!fiche.projet.trim()) missing.push('le nom du projet')
     if (!fiche.dateDebutNuit) missing.push('la date de pose')
     if (!fiche.ouverturePaysage) missing.push("l'ouverture du milieu")
     if (!fiche.habitatPrincipal) missing.push("la description de l'habitat principal")
@@ -233,10 +247,14 @@ export default function FicheForm() {
       showToast(`Champs obligatoires : ${missing.join(', ')}`, 'error')
       return
     }
+    saveLastProject(fiche.projet)
     await saveFiche({ ...fiche, ownerId, dirty: true, syncError: null })
     clearDraft()
     setSavedOnce(true)
-    setFiche(defaultFiche(ownerId))
+    const next = defaultFiche(ownerId)
+    next.projet = fiche.projet
+    next.operateur = user?.displayName ?? ''
+    setFiche(next)
     setPhotoCount(0)
     setLatText('')
     setLonText('')
@@ -246,6 +264,7 @@ export default function FicheForm() {
 
   function handleReset() {
     clearDraft()
+    clearLastProject()
     setSavedOnce(true)
     setFiche(defaultFiche(ownerId))
     setPhotoCount(0)
@@ -315,7 +334,7 @@ export default function FicheForm() {
               className={`px-2 py-3 rounded-xl text-xs font-medium border transition-colors cursor-pointer ${
                 fiche.appareilType === appareil
                   ? 'bg-accent text-white border-accent'
-                  : 'border-foreground/15 bg-white text-foreground hover:border-accent/50'
+                  : 'border-foreground/15 bg-white text-foreground hover:border-foreground/40'
               }`}
             >
               {appareil}
@@ -339,7 +358,7 @@ export default function FicheForm() {
 
       <Section title="Contexte">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <TextInput label="Projet" value={fiche.projet} onChange={(v) => update('projet', v)} />
+          <TextInput label="Projet *" value={fiche.projet} onChange={(v) => update('projet', v)} />
           <TextInput label="Opérateur·trice" value={fiche.operateur} onChange={(v) => update('operateur', v)} placeholder="Prénom Nom" />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -431,7 +450,7 @@ export default function FicheForm() {
           onChange={(v) => update('temperatureC', parseNumber(v))}
         />
         <ChipGroup label="Type de nuit" options={TYPES_NUIT} value={fiche.typeNuit} onChange={(v) => update('typeNuit', v as string)} />
-        <ChipGroup label="Conditions" options={CONDITIONS_METEO} value={fiche.conditionsMeteo} multi onChange={(v) => update('conditionsMeteo', v as string[])} />
+        <ChipGroup label="Conditions" options={CONDITIONS_METEO} value={fiche.conditionsMeteo} multi onChange={(v) => update('conditionsMeteo', v as string[])} gridClassName="grid grid-cols-2 sm:grid-cols-5 gap-1.5" />
       </Section>
 
       <Section title="Photos du milieu" description="Utile pour se rappeler du contexte lors de l'analyse des enregistrements.">
@@ -444,7 +463,7 @@ export default function FicheForm() {
           onChange={(e) => update('commentaires', e.target.value)}
           rows={4}
           placeholder="Remarques, éléments remarquables, accès…"
-          className="px-3 py-2 rounded-lg border border-foreground/10 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 resize-y w-full"
+          className="px-3 py-2 rounded-lg border border-foreground/10 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-foreground/40 resize-y w-full"
         />
       </Section>
 

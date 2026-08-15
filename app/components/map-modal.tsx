@@ -87,7 +87,7 @@ export default function MapModal({ lat, lon, onConfirm, onClose }: MapModalProps
               onChange={(e) => setPasteValue(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handlePaste() }}
               placeholder="Coller des coordonnées WGS84…"
-              className="w-full pl-9 pr-3 py-2 rounded-lg border border-foreground/10 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-accent/40"
+              className="w-full pl-9 pr-3 py-2 rounded-lg border border-foreground/10 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-foreground/40"
             />
           </div>
           <div className="flex gap-2">

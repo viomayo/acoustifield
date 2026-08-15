@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   AlertTriangle,
   Camera,
@@ -28,7 +29,21 @@ import {
 } from '@/lib/idb'
 import { ficheLabel, getSignedPhotoUrl, pullAllFichesForSupervisor, fetchRemoteFichesCache, type SyncConflict } from '@/lib/supabase/sync'
 import { getStoredConflicts } from '@/lib/supabase/sync'
-import { buildPhotosZip, downloadBlob, downloadText, ficheToCSV, ficheToJSON, slugify } from '@/lib/exports'
+import { draftFromFiche, saveDraft } from '@/lib/fiches'
+import {
+  buildPhotosZip,
+  buildPhotosZipAll,
+  buildProjectCsvZip,
+  downloadBlob,
+  downloadText,
+  exportBasename,
+  ficheToCSV,
+  ficheToJSON,
+  fichesToCSV,
+  fichesToJSON,
+  photoFileName,
+  type FicheExportRow,
+} from '@/lib/exports'
 import { showToast } from '@/lib/toast'
 import { createClient } from '@/lib/supabase/client'
 
@@ -38,8 +53,13 @@ interface LocalRow {
   conflict?: SyncConflict
 }
 
+function today(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
 export default function Recapitulatif() {
   const { user, isOnlineAuthenticated } = useOfflineAuth()
+  const router = useRouter()
   const ownerId = user?.ownerId ?? ''
   const [rows, setRows] = useState<LocalRow[]>([])
   const [remoteFiches, setRemoteFiches] = useState<RemoteFicheData[]>([])
@@ -145,8 +165,9 @@ export default function Recapitulatif() {
     for (const photo of photos) {
       await savePhoto({ ...photo, id: crypto.randomUUID(), ficheId: copy.id, position: photo.position, pending: true, storagePath: null, uploadedAt: null, createdAt: now })
     }
-    await loadLocal()
-    showToast('Fiche dupliquée', 'success')
+    saveDraft(draftFromFiche(copy, photos.length))
+    showToast('Fiche dupliquée — prête à être modifiée', 'success')
+    router.push('/')
   }
 
   async function handleDelete(fiche: FicheData) {
@@ -157,13 +178,13 @@ export default function Recapitulatif() {
   }
 
   function handleExportJSON(fiche: FicheData | RemoteFicheData, photos: PhotoData[]) {
-    downloadText(ficheToJSON(fiche, photos), `${slugify(fiche.siteNom || fiche.id)}-fiche.json`, 'application/json')
+    downloadText(ficheToJSON(fiche, photos), `${exportBasename(fiche)}.json`, 'application/json')
   }
 
   function handleExportCSV(fiche: FicheData | RemoteFicheData, photos: PhotoData[], userName?: string | null) {
     const local = fiche as FicheData
-    const csv = ficheToCSV(local, photos.length, { name: userName })
-    downloadText(csv, `${slugify(local.siteNom || local.id)}-fiche.csv`, 'text/csv;charset=utf-8')
+    const csv = ficheToCSV(local, photos.length, { name: userName }, photos.map((p) => photoFileName(local, p.position)))
+    downloadText(csv, `${exportBasename(local)}.csv`, 'text/csv;charset=utf-8')
   }
 
   async function handleExportZIP(fiche: FicheData | RemoteFicheData, photos: PhotoData[]) {
@@ -172,7 +193,41 @@ export default function Recapitulatif() {
       return
     }
     const blob = await buildPhotosZip(fiche as FicheData, photos)
-    downloadBlob(blob, `${slugify(fiche.siteNom || fiche.id)}-photos.zip`)
+    downloadBlob(blob, `${exportBasename(fiche)} - photos.zip`)
+  }
+
+  async function handleExportAllFiches() {
+    if (rows.length === 0) return
+    const byProject = new Map<string, FicheExportRow[]>()
+    for (const { fiche, photos } of rows) {
+      const projet = fiche.projet.trim() || 'Sans projet'
+      const list = byProject.get(projet) ?? []
+      list.push({
+        fiche,
+        photoCount: photos.length,
+        userName: user?.displayName ?? null,
+        photoNames: photos.map((p) => photoFileName(fiche, p.position)),
+      })
+      byProject.set(projet, list)
+    }
+    const groups = [...byProject.entries()].map(([projet, list]) => ({ projet, csv: fichesToCSV(list) }))
+    const blob = await buildProjectCsvZip(groups)
+    downloadBlob(blob, `fiches-par-projet-${today()}.zip`)
+  }
+
+  function handleExportAllJSON() {
+    const json = fichesToJSON(rows.map(({ fiche, photos }) => ({ fiche, photos })))
+    downloadText(json, `toutes-les-fiches-${today()}.json`, 'application/json')
+  }
+
+  async function handleExportAllZIP() {
+    const withPhotos = rows.filter(({ photos }) => photos.length > 0)
+    if (withPhotos.length === 0) {
+      showToast('Aucune photo locale à exporter', 'info')
+      return
+    }
+    const blob = await buildPhotosZipAll(withPhotos)
+    downloadBlob(blob, `toutes-les-fiches-${today()}-photos.zip`)
   }
 
   function openDetails(row: LocalRow) {
@@ -201,7 +256,7 @@ export default function Recapitulatif() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Rechercher un site, projet, appareil…"
-          className="flex-1 px-3 py-2 rounded-lg border border-foreground/10 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
+          className="flex-1 px-3 py-2 rounded-lg border border-foreground/10 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-foreground/40"
         />
         <div className="flex gap-1.5">
           {(['all', 'pending', 'conflict', 'synced'] as const).map((key) => (
@@ -219,8 +274,40 @@ export default function Recapitulatif() {
         </div>
       </div>
 
+      {rows.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 rounded-xl border border-foreground/10 bg-white p-3">
+          <span className="text-xs font-medium text-foreground/60 flex items-center gap-1.5">
+            <Download size={13} className="text-accent" />
+            Télécharger les données (un tableau CSV par projet)
+          </span>
+          <div className="flex gap-1.5">
+            <button
+              type="button"
+              onClick={() => void handleExportAllFiches()}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-foreground/15 hover:bg-foreground/5 transition-colors cursor-pointer"
+            >
+              <FileSpreadsheet size={13} /> Fiches (.zip)
+            </button>
+            <button
+              type="button"
+              onClick={handleExportAllJSON}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-foreground/15 hover:bg-foreground/5 transition-colors cursor-pointer"
+            >
+              <FileJson size={13} /> JSON
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleExportAllZIP()}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-foreground/15 hover:bg-foreground/5 transition-colors cursor-pointer"
+            >
+              <Download size={13} /> Photos (.zip)
+            </button>
+          </div>
+        </div>
+      )}
+
       {supervisor && (
-        <div className="flex items-center justify-between gap-2 rounded-xl border border-accent/30 bg-amber-50/70 p-3">
+        <div className="flex items-center justify-between gap-2 rounded-xl border border-foreground/15 bg-amber-50/70 p-3">
           <div className="flex items-center gap-2 text-sm">
             <FolderOpen size={15} className="text-accent" />
             <span>

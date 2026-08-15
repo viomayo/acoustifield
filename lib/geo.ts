@@ -100,21 +100,47 @@ export interface ReverseGeocodeResult {
   displayName: string
 }
 
+async function fetchWithTimeout(url: string, timeoutMs = 6000): Promise<Response> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, { signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+async function reverseGeocodeNominatim(lat: number, lon: number): Promise<ReverseGeocodeResult | null> {
+  const url = new URL('https://nominatim.openstreetmap.org/reverse')
+  url.searchParams.set('format', 'jsonv2')
+  url.searchParams.set('lat', String(lat))
+  url.searchParams.set('lon', String(lon))
+  url.searchParams.set('accept-language', 'fr')
+  const response = await fetchWithTimeout(url.toString())
+  if (!response.ok) return null
+  const json = (await response.json()) as { address?: Record<string, string>; display_name?: string }
+  const address = json.address ?? {}
+  const commune = address.city || address.town || address.village || address.municipality || address.county || ''
+  if (!commune && !json.display_name) return null
+  return { commune, displayName: json.display_name ?? '' }
+}
+
+async function reverseGeocodeBigDataCloud(lat: number, lon: number): Promise<ReverseGeocodeResult | null> {
+  const url = new URL('https://api.bigdatacloud.net/data/reverse-geocode-client')
+  url.searchParams.set('latitude', String(lat))
+  url.searchParams.set('longitude', String(lon))
+  url.searchParams.set('localityLanguage', 'fr')
+  const response = await fetchWithTimeout(url.toString())
+  if (!response.ok) return null
+  const json = (await response.json()) as { city?: string; locality?: string; principalSubdivision?: string; longitude?: number; latitude?: number }
+  const commune = json.city || json.locality || json.principalSubdivision || ''
+  if (!commune && json.longitude === undefined) return null
+  return { commune, displayName: commune }
+}
+
 export async function reverseGeocode(lat: number, lon: number): Promise<ReverseGeocodeResult | null> {
   try {
-    const url = new URL('https://nominatim.openstreetmap.org/reverse')
-    url.searchParams.set('format', 'jsonv2')
-    url.searchParams.set('lat', String(lat))
-    url.searchParams.set('lon', String(lon))
-    url.searchParams.set('accept-language', 'fr')
-    const response = await fetch(url, { headers: { Accept: 'application/json' } })
-    if (!response.ok) return null
-    const json = (await response.json()) as { address?: Record<string, string>; display_name?: string }
-    const address = json.address ?? {}
-    const commune =
-      address.city || address.town || address.village || address.municipality || address.county || ''
-    if (!commune && !json.display_name) return null
-    return { commune, displayName: json.display_name ?? '' }
+    return (await reverseGeocodeNominatim(lat, lon)) ?? (await reverseGeocodeBigDataCloud(lat, lon))
   } catch {
     return null
   }

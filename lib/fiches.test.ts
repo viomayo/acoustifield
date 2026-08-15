@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
-import { parseCoordinates } from './fiches'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { clearLastProject, draftFromFiche, getLastProject, loadDraft, parseCoordinates, saveDraft, saveLastProject } from './fiches'
+import { makeFiche } from './test-fixtures'
 
 describe('parseCoordinates', () => {
   it('parses plain decimal coordinates separated by a comma', () => {
@@ -40,5 +41,46 @@ describe('parseCoordinates', () => {
     expect(parseCoordinates('abc')).toBeNull()
     expect(parseCoordinates('50.72521')).toBeNull()
     expect(parseCoordinates('1 2 3')).toBeNull()
+  })
+})
+
+describe('last project', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  it('stores and restores the last used project name', () => {
+    expect(getLastProject()).toBe('')
+    saveLastProject('Plan chiroptères')
+    expect(getLastProject()).toBe('Plan chiroptères')
+  })
+
+  it('forgets the project when saved empty or cleared', () => {
+    saveLastProject('Plan')
+    saveLastProject('   ')
+    expect(getLastProject()).toBe('')
+    saveLastProject('Plan')
+    clearLastProject()
+    expect(getLastProject()).toBe('')
+  })
+})
+describe('draft', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  it('keeps the fiche id in the draft so a duplicate can be edited in place', () => {
+    const fiche = makeFiche({ id: 'copy-42' })
+    saveDraft(draftFromFiche(fiche, 1))
+    const draft = loadDraft()
+    expect(draft?.id).toBe('copy-42')
+    expect(draft?.photoCount).toBe(1)
+  })
+
+  it('loads legacy drafts without an id', () => {
+    localStorage.setItem('acoustifield_draft_v1', JSON.stringify({ siteNom: 'Ancien site' }))
+    const draft = loadDraft()
+    expect(draft?.siteNom).toBe('Ancien site')
+    expect(draft?.id).toBeUndefined()
   })
 })

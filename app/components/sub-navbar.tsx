@@ -32,7 +32,7 @@ export default function SubNavbar() {
                 <Icon size={15} />
                 {label}
                 {isActive && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />
                 )}
               </Link>
             )
@@ -56,7 +56,7 @@ export default function SubNavbar() {
                 }`}
               >
                 {isActive && (
-                  <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-accent" />
+                  <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-foreground" />
                 )}
                 <Icon size={20} strokeWidth={isActive ? 2 : 1.5} />
                 <span>{label}</span>

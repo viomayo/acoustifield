@@ -57,7 +57,7 @@ export default function CompassField({ value, onChange }: CompassFieldProps) {
     window.addEventListener('deviceorientation', handler, { once: true })
     window.setTimeout(() => {
       window.removeEventListener('deviceorientation', handler)
-      setStatus('idle')
+      setStatus('unavailable')
     }, 10000)
   }
 

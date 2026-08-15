@@ -16,7 +16,11 @@
 - [fait] Suppressions offline rejouées avec tombstones et conservation des erreurs.
 - [fait] Pull des fiches de l'utilisateur (import/fusion selon la révision distante) et cache superviseur local des fiches des autres enregistreurs (`remote_fiches` par compte).
 - [fait] RLS propriétaire et superviseur durcie par migrations versionnées (tables `fiches`, `photos`, `profiles`, `supervisors`).
-- [fait] Exports JSON, CSV (UTF-8 avec BOM, séparateur `;`, `user_id`/`user_name`, `nb_photos`) et ZIP des photos.
+- [fait] Exports JSON, CSV (UTF-8 avec BOM, séparateur `;`, `user_id`/`user_name`, `nb_photos`, colonne `photos` listant les noms des fichiers liés) et ZIP des photos.
+- [fait] Exports renommés « Projet - Date - Site - Opérateur », photos nommées « Projet - Date - Site - Opérateur - NN.jpg », et téléchargement depuis le récapitulatif : un tableau CSV par projet (ZIP), JSON complet ou ZIP des photos (un dossier par fiche).
+- [fait] Duplication d'une fiche ouvrant une nouvelle fiche préremplie et modifiable (champs et photos copiés) ; nom du projet conservé pour la fiche suivante après « Sauvegarder et enregistrer une nouvelle fiche », sauf réinitialisation complète.
+- [fait] Nom du projet obligatoire (validation + astérisque), opérateur prérempli au prénom+nom de la personne connectée et modifiable, commune remplie par géocodage inverse avec repli sur BigDataCloud si Nominatim échoue, boussole avec repli automatique sur le curseur si indisponible, et conditions météo affichées par paires sur mobile (Pleine lune/Nuit noire, Vent léger/Vent fort).
+- [fait] Bords et soulignés de l'interface passés au noir (anneaux de focus, onglets de la barre de navigation, survols, bandeau superviseur) ; icônes PWA régénérées avec une marge de sécurité (le motif ne touche plus les bords), version `?v=3`.
 - [fait] Profils utilisateurs contrôlés : table `profiles` préremplie au premier sign-in (nom Google), renommable localement, et noms affichés dans la vue superviseur.
 - [fait] Tests unitaires/intégration, scénarios Playwright et CI (qualité, couverture, build, audit, E2E, Supabase).
 - [fait] Échange PKCE du code OAuth déplacé vers la route serveur `/api/auth/exchange`, stockage Supabase verrouillé sur la clé `acoustifield-auth`, et page `/auth/auth-code-error` affichant l'erreur exacte renvoyée par Supabase.

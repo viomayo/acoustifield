@@ -2,11 +2,17 @@ import { describe, expect, it, vi } from 'vitest'
 import JSZip from 'jszip'
 import {
   buildPhotosZip,
+  buildPhotosZipAll,
+  buildProjectCsvZip,
   csvCell,
   downloadBlob,
   downloadText,
+  exportBasename,
   ficheToCSV,
   ficheToJSON,
+  fichesToCSV,
+  fichesToJSON,
+  photoFileName,
   slugify,
   stripAccents,
 } from './exports'
@@ -107,8 +113,109 @@ describe('exports', () => {
     const zip = await JSZip.loadAsync(blob)
     const files = Object.keys(zip.files).filter((name) => !name.endsWith('/')).sort()
     expect(files).toEqual([
-      'fiche-1/00-Etang-de-la-Hulotte.jpg',
-      'fiche-1/01-Etang-de-la-Hulotte.jpg',
+      'fiche-1/Projet A - 2026-08-14 - Étang de la Hulotte - Opérateur - 01.jpg',
+      'fiche-1/Projet A - 2026-08-14 - Étang de la Hulotte - Opérateur - 02.jpg',
+    ])
+  })
+
+  it('builds a photo file name from the fiche basename and a photo number', () => {
+    expect(photoFileName(makeFiche({ projet: 'Projet A', siteNom: 'Étang de la Hulotte', operateur: 'Marie' }), 0)).toBe(
+      'Projet A - 2026-08-14 - Étang de la Hulotte - Marie - 01.jpg',
+    )
+    expect(photoFileName(makeFiche(), 9)).toBe('Projet A - 2026-08-14 - Étang de la Hulotte - Opérateur - 10.jpg')
+  })
+
+  it('links the photo file names in the CSV photos column', () => {
+    const csv = ficheToCSV(makeFiche(), 2, undefined, [
+      'Projet A - 2026-08-14 - Étang de la Hulotte - Opérateur - 01.jpg',
+      'Projet A - 2026-08-14 - Étang de la Hulotte - Opérateur - 02.jpg',
+    ])
+    const [header, row] = csv.slice(1).split('\r\n')
+    const cells = parseCsvRow(row)
+    const columns = header.split(';')
+    expect(columns).toContain('photos')
+    expect(cells[columns.indexOf('photos')]).toBe(
+      'Projet A - 2026-08-14 - Étang de la Hulotte - Opérateur - 01.jpg|Projet A - 2026-08-14 - Étang de la Hulotte - Opérateur - 02.jpg',
+    )
+  })
+
+  it('creates one CSV file per project inside a zip', async () => {
+    const blob = await buildProjectCsvZip([
+      { projet: 'Projet A', csv: 'csv-a' },
+      { projet: 'Plan B', csv: 'csv-b' },
+    ])
+    const zip = await JSZip.loadAsync(blob)
+    const files = Object.keys(zip.files).filter((name) => !name.endsWith('/')).sort()
+    expect(files).toEqual(['Plan B.csv', 'Projet A.csv'])
+  })
+
+  it('renames colliding project CSV files inside the zip', async () => {
+    const blob = await buildProjectCsvZip([
+      { projet: 'Projet', csv: 'csv-a' },
+      { projet: 'Projet', csv: 'csv-b' },
+    ])
+    const zip = await JSZip.loadAsync(blob)
+    const files = Object.keys(zip.files).filter((name) => !name.endsWith('/')).sort()
+    expect(files).toEqual(['Projet-2.csv', 'Projet.csv'])
+  })
+
+  it('builds an export basename as Projet - Date - Site - Opérateur', () => {
+    const fiche = makeFiche({ projet: 'Plan chauves-souris', siteNom: 'Étang de la Hulotte', operateur: 'Marie Dupont' })
+    expect(exportBasename(fiche)).toBe('Plan chauves-souris - 2026-08-14 - Étang de la Hulotte - Marie Dupont')
+    expect(exportBasename(makeFiche({ projet: '', operateur: '' }))).toBe('2026-08-14 - Étang de la Hulotte')
+    expect(exportBasename(makeFiche({ projet: 'a:b/c*d', siteNom: '' }))).toBe('a-b-c-d - 2026-08-14 - Opérateur')
+  })
+
+  it('merges several fiches into a single CSV with one row per fiche', () => {
+    const csv = fichesToCSV([
+      { fiche: makeFiche(), photoCount: 2, userName: 'Bob' },
+      { fiche: makeFiche({ id: 'fiche-2', siteNom: 'Autre site', boitierNum: 'B2' }), photoCount: 0 },
+    ])
+    expect(csv.startsWith('\uFEFF')).toBe(true)
+    const [header, row1, row2] = csv.slice(1).split('\r\n')
+    const columns = header.split(';')
+    const at = (name: string) => columns.indexOf(name)
+    expect(row1.split(';')[at('user_name')]).toBe('Bob')
+    expect(row1.split(';')[at('nb_photos')]).toBe('2')
+    expect(row2.split(';')[at('fiche_id')]).toBe('fiche-2')
+    expect(row2.split(';')[at('nb_photos')]).toBe('0')
+  })
+
+  it('serialises several fiches and their photos to JSON', () => {
+    const json = fichesToJSON([
+      { fiche: makeFiche(), photos: [makePhoto()] },
+      { fiche: makeFiche({ id: 'fiche-2' }), photos: [] },
+    ])
+    const parsed = JSON.parse(json) as { app: string; fiches: Array<{ fiche: { id: string }; photos: unknown[] }> }
+    expect(parsed.app).toBe('AcoustiField')
+    expect(parsed.fiches).toHaveLength(2)
+    expect(parsed.fiches[0].fiche.id).toBe('fiche-1')
+    expect(parsed.fiches[0].photos).toHaveLength(1)
+    expect(parsed.fiches[1].fiche.id).toBe('fiche-2')
+    expect(parsed.fiches[1].photos).toHaveLength(0)
+  })
+
+  it('bundles the photos of several fiches into one zip, one folder per fiche', async () => {
+    const blob = await buildPhotosZipAll([
+      { fiche: makeFiche({ siteNom: 'Étang de la Hulotte' }), photos: [makePhoto({ position: 0 })] },
+      { fiche: makeFiche({ id: 'fiche-2', siteNom: 'Bois du Couvent' }), photos: [makePhoto({ id: 'photo-3', position: 1 })] },
+    ])
+    const zip = await JSZip.loadAsync(blob)
+    const files = Object.keys(zip.files).filter((name) => !name.endsWith('/')).sort()
+    expect(files).toEqual([
+      'fiche-1/Projet A - 2026-08-14 - Étang de la Hulotte - Opérateur - 01.jpg',
+      'fiche-2/Projet A - 2026-08-14 - Bois du Couvent - Opérateur - 02.jpg',
+    ])
+  })
+
+  it('skips fiches without photos when bundling the zip', async () => {
+    const blob = await buildPhotosZipAll([
+      { fiche: makeFiche(), photos: [makePhoto()] },
+      { fiche: makeFiche({ id: 'fiche-2' }), photos: [] },
+    ])
+    const zip = await JSZip.loadAsync(blob)
+    expect(Object.keys(zip.files).filter((name) => !name.endsWith('/'))).toEqual([
+      'fiche-1/Projet A - 2026-08-14 - Étang de la Hulotte - Opérateur - 01.jpg',
     ])
   })
 
