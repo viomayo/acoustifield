@@ -196,6 +196,8 @@ export default function FicheForm() {
   const [savedOnce, setSavedOnce] = useState(false)
   const [latText, setLatText] = useState<string>(() => (fiche.lat == null ? '' : String(fiche.lat)))
   const [lonText, setLonText] = useState<string>(() => (fiche.lon == null ? '' : String(fiche.lon)))
+  const [hauteurText, setHauteurText] = useState<string>(() => (fiche.hauteurPoseM == null ? '' : String(fiche.hauteurPoseM)))
+  const [temperatureText, setTemperatureText] = useState<string>(() => (fiche.temperatureC == null ? '' : String(fiche.temperatureC)))
   const reverseGeocodeRequested = useRef(false)
 
   useEffect(() => {
@@ -258,6 +260,8 @@ export default function FicheForm() {
     setPhotoCount(0)
     setLatText('')
     setLonText('')
+    setHauteurText('')
+    setTemperatureText('')
     reverseGeocodeRequested.current = false
     showToast('Fiche enregistrée en local — pense à synchroniser', 'success')
   }
@@ -270,8 +274,9 @@ export default function FicheForm() {
     setPhotoCount(0)
     setLatText('')
     setLonText('')
+    setHauteurText('')
+    setTemperatureText('')
     reverseGeocodeRequested.current = false
-    setShowResetConfirm(false)
     showToast('Formulaire réinitialisé', 'info')
   }
 
@@ -293,6 +298,12 @@ export default function FicheForm() {
     }
 
     update(axis, parseNumber(raw))
+  }
+
+  function handleDecimalChange(key: 'hauteurPoseM' | 'temperatureC', raw: string) {
+    if (key === 'hauteurPoseM') setHauteurText(raw)
+    else setTemperatureText(raw)
+    update(key, parseNumber(raw))
   }
 
   function handleMyPosition() {
@@ -434,8 +445,8 @@ export default function FicheForm() {
             inputMode="decimal"
             placeholder="ex : 1,5"
             hint="Généralement posé à 1,5 m."
-            value={fiche.hauteurPoseM == null ? '' : String(fiche.hauteurPoseM)}
-            onChange={(v) => update('hauteurPoseM', parseNumber(v))}
+            value={hauteurText}
+            onChange={(v) => handleDecimalChange('hauteurPoseM', v)}
           />
         </div>
         <CompassField value={fiche.orientationDeg} onChange={(v) => update('orientationDeg', v)} />
@@ -446,8 +457,8 @@ export default function FicheForm() {
           label="Température en début de nuit (au coucher du soleil, °C)"
           type="text"
           inputMode="decimal"
-          value={fiche.temperatureC == null ? '' : String(fiche.temperatureC)}
-          onChange={(v) => update('temperatureC', parseNumber(v))}
+          value={temperatureText}
+          onChange={(v) => handleDecimalChange('temperatureC', v)}
         />
         <ChipGroup label="Type de nuit" options={TYPES_NUIT} value={fiche.typeNuit} onChange={(v) => update('typeNuit', v as string)} />
         <ChipGroup label="Conditions" options={CONDITIONS_METEO} value={fiche.conditionsMeteo} multi onChange={(v) => update('conditionsMeteo', v as string[])} gridClassName="grid grid-cols-2 sm:grid-cols-5 gap-1.5" />
