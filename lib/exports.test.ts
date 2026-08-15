@@ -18,8 +18,25 @@ import {
   photoFileName,
   slugify,
   stripAccents,
+  WINDOWS_1252_HIGH,
 } from './exports'
 import { makeFiche, makePhoto } from './test-fixtures'
+
+const WINDOWS_1252_BYTE_TO_CHAR = new Map(
+  Object.entries(WINDOWS_1252_HIGH).map(([char, byte]) => [byte, char])
+)
+
+function decodeWindows1252(bytes: Uint8Array): string {
+  let out = ''
+  for (const byte of bytes) {
+    if (byte < 0x80 || byte >= 0xa0) {
+      out += String.fromCharCode(byte)
+    } else {
+      out += WINDOWS_1252_BYTE_TO_CHAR.get(byte) ?? ''
+    }
+  }
+  return out
+}
 
 function parseCsvRow(line: string): string[] {
   const cells: string[] = []
@@ -109,7 +126,7 @@ describe('exports', () => {
     expect(bytes[0]).toBe(0xc9)
     expect(Array.from(bytes)).toContain(0x97)
     expect(Array.from(bytes)).toContain(0x9c)
-    expect(new TextDecoder('windows-1252').decode(bytes)).toBe('Élise Météo — Étang de la Hulotte (cœur)')
+    expect(decodeWindows1252(bytes)).toBe('Élise Météo — Étang de la Hulotte (cœur)')
   })
 
   it('replaces characters outside Windows-1252 with a question mark', () => {
@@ -119,7 +136,7 @@ describe('exports', () => {
   it('exports a CSV that round-trips through Windows-1252 losslessly', () => {
     const csv = ficheToCSV(makeFiche({ siteNom: 'Étang de la Hulotte', operateur: 'Élise Météo' }), 1)
     expect(csv.includes('Étang')).toBe(true)
-    expect(new TextDecoder('windows-1252').decode(encodeWindows1252(csv))).toBe(csv)
+    expect(decodeWindows1252(encodeWindows1252(csv))).toBe(csv)
   })
 
   it('stores project CSV files in the zip as Windows-1252 bytes', async () => {
@@ -128,7 +145,7 @@ describe('exports', () => {
     const zip = await JSZip.loadAsync(blob)
     const inner = await zip.file('Suivi des chiroptères.csv')!.async('uint8array')
     expect(inner[0]).not.toBe(0xef)
-    expect(new TextDecoder('windows-1252').decode(inner)).toBe(csv)
+    expect(decodeWindows1252(inner)).toBe(csv)
   })
 
   it('escapes comment cells and flags a full SD card', () => {

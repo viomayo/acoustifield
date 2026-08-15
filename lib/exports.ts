@@ -13,7 +13,7 @@ export function decimalCell(value: number | null | undefined): string {
   return value == null ? '' : String(value).replace('.', ',')
 }
 
-const WINDOWS_1252_HIGH: Readonly<Record<string, number>> = {
+export const WINDOWS_1252_HIGH: Readonly<Record<string, number>> = {
   '\u20AC': 0x80, '\u201A': 0x82, '\u0192': 0x83, '\u201E': 0x84, '\u2026': 0x85,
   '\u2020': 0x86, '\u2021': 0x87, '\u02C6': 0x88, '\u2030': 0x89, '\u0160': 0x8A,
   '\u2039': 0x8B, '\u0152': 0x8C, '\u017D': 0x8E, '\u2018': 0x91, '\u2019': 0x92,
