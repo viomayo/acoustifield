@@ -23,7 +23,6 @@ import {
   ficheIsEmpty,
   getLastProject,
   loadDraft,
-  parseCoordinates,
   saveDraft,
   saveLastProject,
   type FicheData,
@@ -292,22 +291,6 @@ export default function FicheForm() {
     setPhotoCount(photos.length)
   }
 
-  function handleCoordChange(axis: 'lat' | 'lon', raw: string) {
-    if (axis === 'lat') setLatText(raw)
-    else setLonText(raw)
-
-    const parsed = parseCoordinates(raw)
-    if (parsed) {
-      update('lat', parsed.lat)
-      update('lon', parsed.lon)
-      setLatText(String(parsed.lat))
-      setLonText(String(parsed.lon))
-      return
-    }
-
-    update(axis, parseNumber(raw))
-  }
-
   function handleDecimalChange(key: 'hauteurPoseM' | 'temperatureC', raw: string) {
     if (key === 'hauteurPoseM') setHauteurText(raw)
     else setTemperatureText(raw)
@@ -409,20 +392,16 @@ export default function FicheForm() {
             <span className="text-xs text-foreground/50">Coordonnées en WGS84 (degrés décimaux)</span>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <TextInput label="Latitude" value={latText} onChange={(v) => handleCoordChange('lat', v)} inputMode="decimal" />
-            <TextInput label="Longitude" value={lonText} onChange={(v) => handleCoordChange('lon', v)} inputMode="decimal" />
+            <TextInput label="Latitude (auto)" value={latText} onChange={() => {}} inputMode="decimal" />
+            <TextInput label="Longitude (auto)" value={lonText} onChange={() => {}} inputMode="decimal" />
           </div>
-          <span className="text-xs text-foreground/50">
-            Astuce : vous pouvez coller des coordonnées complètes dans l&apos;un des deux champs (ex. 50,72521° N, 4,53803° E ou
-            50°53&apos;19,7&quot;N 4°21&apos;50,3&quot;E) — elles seront réparties automatiquement entre latitude et longitude.
-          </span>
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() => setShowMap(true)}
               className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium bg-foreground text-background hover:bg-foreground/90 transition-colors cursor-pointer"
             >
-              🗺️ Choisir sur la carte
+              📍 Renseigner les coordonnées
             </button>
             <button
               type="button"
