@@ -67,7 +67,7 @@ function emitSyncState() {
 
 export function ficheLabel(fiche: FicheData): string {
   const site = fiche.siteNom.trim()
-  const date = fiche.dateDebutNuit
+  const date = fiche.dateHeurePose
   return [date, fiche.appareilType, site].filter(Boolean).join(' — ') || 'Fiche sans titre'
 }
 
@@ -81,7 +81,9 @@ export async function buildLocalSnapshot(fiche: FicheData, photos: PhotoData[]):
       carte_sd_pleine: fiche.carteSdPleine,
       projet: fiche.projet,
       operateur: fiche.operateur,
-      date_debut_nuit: fiche.dateDebutNuit || null,
+      date_heure_pose: fiche.dateHeurePose || null,
+      date_heure_recherche: fiche.dateHeureRecherche || null,
+      nb_nuits_ecoute: fiche.nbNuitsEcoute,
       site_nom: fiche.siteNom,
       lat: fiche.lat,
       lon: fiche.lon,
@@ -123,7 +125,9 @@ export function mapFicheRow(ownerId: string, row: Record<string, unknown>): Fich
     carteSdPleine: row.carte_sd_pleine === true,
     projet: (row.projet as string) ?? '',
     operateur: (row.operateur as string) ?? '',
-    dateDebutNuit: (row.date_debut_nuit as string) ?? '',
+    dateHeurePose: (row.date_heure_pose as string) ?? '',
+    dateHeureRecherche: (row.date_heure_recherche as string) ?? '',
+    nbNuitsEcoute: typeof row.nb_nuits_ecoute === 'number' ? row.nb_nuits_ecoute : null,
     siteNom: (row.site_nom as string) ?? '',
     lat: typeof row.lat === 'number' ? row.lat : null,
     lon: typeof row.lon === 'number' ? row.lon : null,
@@ -178,7 +182,7 @@ async function fetchRemoteFicheRows(
 export async function buildSyncConflict(local: FicheData, remote: FicheData): Promise<SyncConflict> {
   const pairs: Array<[string, unknown, unknown]> = [
     ['Appareil', { appareil: local.appareilType, boitier: local.boitierNum, micro: local.microNum, sd: local.carteSdPleine }, { appareil: remote.appareilType, boitier: remote.boitierNum, micro: remote.microNum, sd: remote.carteSdPleine }],
-    ['Contexte', { projet: local.projet, operateur: local.operateur, date: local.dateDebutNuit }, { projet: remote.projet, operateur: remote.operateur, date: remote.dateDebutNuit }],
+    ['Contexte', { projet: local.projet, operateur: local.operateur, datePose: local.dateHeurePose, dateRecherche: local.dateHeureRecherche }, { projet: remote.projet, operateur: remote.operateur, datePose: remote.dateHeurePose, dateRecherche: remote.dateHeureRecherche }],
     ['Site', { nom: local.siteNom, lat: local.lat, lon: local.lon, commune: local.commune }, { nom: remote.siteNom, lat: remote.lat, lon: remote.lon, commune: remote.commune }],
     ['Milieu', { sur: local.surElement, autre: local.surElementAutre, ouverture: local.ouverturePaysage, habitat: local.habitatPrincipal, secondaire: local.habitatSecondaire, habitatAutre: local.habitatPrincipalAutre, secondaireAutre: local.habitatSecondaireAutre, gestion: local.gestion, eclairage: local.eclairage, hauteur: local.hauteurPoseM, orientation: local.orientationDeg }, { sur: remote.surElement, autre: remote.surElementAutre, ouverture: remote.ouverturePaysage, habitat: remote.habitatPrincipal, secondaire: remote.habitatSecondaire, habitatAutre: remote.habitatPrincipalAutre, secondaireAutre: remote.habitatSecondaireAutre, gestion: remote.gestion, eclairage: remote.eclairage, hauteur: remote.hauteurPoseM, orientation: remote.orientationDeg }],
     ['Météo', { temp: local.temperatureC, type: local.typeNuit, conditions: local.conditionsMeteo }, { temp: remote.temperatureC, type: remote.typeNuit, conditions: remote.conditionsMeteo }],

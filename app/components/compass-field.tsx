@@ -1,65 +1,14 @@
 'use client'
 
-import { useState } from 'react'
-
 interface CompassFieldProps {
   value: number | null
   onChange: (value: number | null) => void
 }
 
-type ExtendedDeviceOrientationEvent = DeviceOrientationEvent & {
-  webkitCompassHeading?: number | null
-}
-
-type DeviceOrientationConstructor = (typeof DeviceOrientationEvent) & {
-  requestPermission?: () => Promise<string>
-}
-
-function headingFromEvent(event: DeviceOrientationEvent): number | null {
-  const extended = event as ExtendedDeviceOrientationEvent
-  if (typeof extended.webkitCompassHeading === 'number') return extended.webkitCompassHeading
-  if (event.absolute && typeof event.alpha === 'number') return event.alpha
-  return null
-}
-
 const TICKS = Array.from({ length: 12 }, (_, i) => i * 30)
 
 export default function CompassField({ value, onChange }: CompassFieldProps) {
-  const [status, setStatus] = useState<'idle' | 'measuring' | 'unavailable'>('idle')
   const degrees = value ?? 0
-  const supportsDeviceOrientation =
-    typeof window !== 'undefined' && 'DeviceOrientationEvent' in window
-
-  async function captureHeading() {
-    const DOE = (window as unknown as { DeviceOrientationEvent?: DeviceOrientationConstructor })
-      .DeviceOrientationEvent
-    if (!DOE) {
-      setStatus('unavailable')
-      return
-    }
-    try {
-      if (DOE.requestPermission) {
-        const permission = await DOE.requestPermission()
-        if (permission !== 'granted') return
-      }
-    } catch {
-      setStatus('unavailable')
-      return
-    }
-    setStatus('measuring')
-    const handler = (event: DeviceOrientationEvent) => {
-      const heading = headingFromEvent(event)
-      if (heading == null) return
-      const rounded = Math.round(((heading % 360) + 360) % 360)
-      onChange(rounded)
-      setStatus('idle')
-    }
-    window.addEventListener('deviceorientation', handler, { once: true })
-    window.setTimeout(() => {
-      window.removeEventListener('deviceorientation', handler)
-      setStatus('unavailable')
-    }, 10000)
-  }
 
   return (
     <div className="flex flex-col gap-2">
@@ -114,21 +63,8 @@ export default function CompassField({ value, onChange }: CompassFieldProps) {
               {value == null ? '—' : `${value}°`}
             </span>
           </div>
-          <button
-            type="button"
-            onClick={() => void captureHeading()}
-            disabled={!supportsDeviceOrientation || status === 'measuring'}
-            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-foreground text-background hover:bg-foreground/90 disabled:opacity-40 transition-colors cursor-pointer"
-          >
-            🧭 {status === 'measuring' ? 'Mesure…' : 'Utiliser la boussole'}
-          </button>
-          {status === 'unavailable' && (
-            <span className="text-xs text-foreground/50">
-              Boussole indisponible sur cet appareil — règle l&apos;orientation avec le curseur ou une boussole externe.
-            </span>
-          )}
           <span className="text-xs text-foreground/50">
-            Règle le curseur à la main ou utilise la boussole du téléphone pour pointer l&apos;orientation de l&apos;enregistreur.
+            Règle le curseur à la main pour pointer l&apos;orientation de l&apos;enregistreur.
           </span>
         </div>
       </div>

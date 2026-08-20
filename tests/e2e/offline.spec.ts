@@ -153,7 +153,7 @@ async function createFicheThroughUi(page: Page) {
   await page.getByRole('button', { name: 'SM4BAT' }).click()
   await page.getByLabel('N° du boîtier').fill('SM4BAT-0001')
   await page.getByLabel('Projet').fill('Suivi des chiroptères')
-  await page.getByLabel('Date de début de nuit *').fill('2026-08-15')
+  await page.getByLabel('Jour et heure de pose *').fill('2026-08-15T20:00')
   await page.getByRole('button', { name: 'Ouvert', exact: true }).click()
   await page.getByLabel("Description de l'habitat principal (< 10 m) *").selectOption({ label: 'Forêt feuillue' })
   await page.getByLabel('Nom du site').fill('Étang de la Hulotte')

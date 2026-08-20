@@ -93,7 +93,9 @@ describe('exports', () => {
     expect(cells[at('fiche_id')]).toBe('fiche-1')
     expect(cells[at('user_id')]).toBe('user-b')
     expect(cells[at('user_name')]).toBe('Bob')
-    expect(cells[at('date_debut_nuit')]).toBe('2026-08-14')
+    expect(cells[at('date_heure_pose')]).toBe('2026-08-14T20:00')
+    expect(cells[at('date_heure_recherche')]).toBe('2026-08-17T08:00')
+    expect(cells[at('nb_nuits_ecoute')]).toBe('3')
     expect(cells[at('conditions_meteo')]).toBe('Pluie|Vent')
     expect(cells[at('carte_sd_pleine')]).toBe('0')
     expect(cells[at('nb_photos')]).toBe('2')
@@ -133,19 +135,23 @@ describe('exports', () => {
     expect(Array.from(encodeWindows1252('A😀B'))).toEqual([0x41, 0x3f, 0x3f, 0x42])
   })
 
-  it('exports a CSV that round-trips through Windows-1252 losslessly', () => {
+  it('exports a CSV that contains accented characters as UTF-8', () => {
     const csv = ficheToCSV(makeFiche({ siteNom: 'Étang de la Hulotte', operateur: 'Élise Météo' }), 1)
     expect(csv.includes('Étang')).toBe(true)
-    expect(decodeWindows1252(encodeWindows1252(csv))).toBe(csv)
+    expect(csv.includes('Élise')).toBe(true)
   })
 
-  it('stores project CSV files in the zip as Windows-1252 bytes', async () => {
+  it('stores project CSV files in the zip as UTF-8 with BOM', async () => {
     const csv = ficheToCSV(makeFiche({ siteNom: 'Étang de la Hulotte' }), 1)
     const blob = await buildProjectCsvZip([{ projet: 'Suivi des chiroptères', csv }])
     const zip = await JSZip.loadAsync(blob)
     const inner = await zip.file('Suivi des chiroptères.csv')!.async('uint8array')
-    expect(inner[0]).not.toBe(0xef)
-    expect(decodeWindows1252(inner)).toBe(csv)
+    expect(inner[0]).toBe(0xef)
+    expect(inner[1]).toBe(0xbb)
+    expect(inner[2]).toBe(0xbf)
+    const text = await zip.file('Suivi des chiroptères.csv')!.async('string')
+    expect(text.startsWith('\uFEFF')).toBe(true)
+    expect(text.slice(1)).toBe(csv)
   })
 
   it('escapes comment cells and flags a full SD card', () => {
@@ -181,29 +187,29 @@ describe('exports', () => {
     const zip = await JSZip.loadAsync(blob)
     const files = Object.keys(zip.files).filter((name) => !name.endsWith('/')).sort()
     expect(files).toEqual([
-      'fiche-1/Projet A - 2026-08-14 - Étang de la Hulotte - Opérateur - 01.jpg',
-      'fiche-1/Projet A - 2026-08-14 - Étang de la Hulotte - Opérateur - 02.jpg',
+      'fiche-1/Projet A - 2026-08-14T20-00 - Étang de la Hulotte - Opérateur - 01.jpg',
+      'fiche-1/Projet A - 2026-08-14T20-00 - Étang de la Hulotte - Opérateur - 02.jpg',
     ])
   })
 
   it('builds a photo file name from the fiche basename and a photo number', () => {
     expect(photoFileName(makeFiche({ projet: 'Projet A', siteNom: 'Étang de la Hulotte', operateur: 'Marie' }), 0)).toBe(
-      'Projet A - 2026-08-14 - Étang de la Hulotte - Marie - 01.jpg',
+      'Projet A - 2026-08-14T20-00 - Étang de la Hulotte - Marie - 01.jpg',
     )
-    expect(photoFileName(makeFiche(), 9)).toBe('Projet A - 2026-08-14 - Étang de la Hulotte - Opérateur - 10.jpg')
+    expect(photoFileName(makeFiche(), 9)).toBe('Projet A - 2026-08-14T20-00 - Étang de la Hulotte - Opérateur - 10.jpg')
   })
 
   it('links the photo file names in the CSV photos column', () => {
     const csv = ficheToCSV(makeFiche(), 2, undefined, [
-      'Projet A - 2026-08-14 - Étang de la Hulotte - Opérateur - 01.jpg',
-      'Projet A - 2026-08-14 - Étang de la Hulotte - Opérateur - 02.jpg',
+      'Projet A - 2026-08-14T20:00 - Étang de la Hulotte - Opérateur - 01.jpg',
+      'Projet A - 2026-08-14T20:00 - Étang de la Hulotte - Opérateur - 02.jpg',
     ])
     const [header, row] = csv.split('\r\n')
     const cells = parseCsvRow(row)
     const columns = header.split(';')
     expect(columns).toContain('photos')
     expect(cells[columns.indexOf('photos')]).toBe(
-      'Projet A - 2026-08-14 - Étang de la Hulotte - Opérateur - 01.jpg|Projet A - 2026-08-14 - Étang de la Hulotte - Opérateur - 02.jpg',
+      'Projet A - 2026-08-14T20:00 - Étang de la Hulotte - Opérateur - 01.jpg|Projet A - 2026-08-14T20:00 - Étang de la Hulotte - Opérateur - 02.jpg',
     )
   })
 
@@ -229,9 +235,9 @@ describe('exports', () => {
 
   it('builds an export basename as Projet - Date - Site - Opérateur', () => {
     const fiche = makeFiche({ projet: 'Plan chauves-souris', siteNom: 'Étang de la Hulotte', operateur: 'Marie Dupont' })
-    expect(exportBasename(fiche)).toBe('Plan chauves-souris - 2026-08-14 - Étang de la Hulotte - Marie Dupont')
-    expect(exportBasename(makeFiche({ projet: '', operateur: '' }))).toBe('2026-08-14 - Étang de la Hulotte')
-    expect(exportBasename(makeFiche({ projet: 'a:b/c*d', siteNom: '' }))).toBe('a-b-c-d - 2026-08-14 - Opérateur')
+    expect(exportBasename(fiche)).toBe('Plan chauves-souris - 2026-08-14T20-00 - Étang de la Hulotte - Marie Dupont')
+    expect(exportBasename(makeFiche({ projet: '', operateur: '' }))).toBe('2026-08-14T20-00 - Étang de la Hulotte')
+    expect(exportBasename(makeFiche({ projet: 'a:b/c*d', siteNom: '' }))).toBe('a-b-c-d - 2026-08-14T20-00 - Opérateur')
   })
 
   it('merges several fiches into a single CSV with one row per fiche', () => {
@@ -271,8 +277,8 @@ describe('exports', () => {
     const zip = await JSZip.loadAsync(blob)
     const files = Object.keys(zip.files).filter((name) => !name.endsWith('/')).sort()
     expect(files).toEqual([
-      'fiche-1/Projet A - 2026-08-14 - Étang de la Hulotte - Opérateur - 01.jpg',
-      'fiche-2/Projet A - 2026-08-14 - Bois du Couvent - Opérateur - 02.jpg',
+      'fiche-1/Projet A - 2026-08-14T20-00 - Étang de la Hulotte - Opérateur - 01.jpg',
+      'fiche-2/Projet A - 2026-08-14T20-00 - Bois du Couvent - Opérateur - 02.jpg',
     ])
   })
 
@@ -283,7 +289,7 @@ describe('exports', () => {
     ])
     const zip = await JSZip.loadAsync(blob)
     expect(Object.keys(zip.files).filter((name) => !name.endsWith('/'))).toEqual([
-      'fiche-1/Projet A - 2026-08-14 - Étang de la Hulotte - Opérateur - 01.jpg',
+      'fiche-1/Projet A - 2026-08-14T20-00 - Étang de la Hulotte - Opérateur - 01.jpg',
     ])
   })
 
@@ -304,7 +310,7 @@ describe('exports', () => {
     expect(click).toHaveBeenCalledOnce()
   })
 
-  it('downloads CSV content as Windows-1252 bytes', () => {
+  it('downloads CSV content as UTF-8 with BOM', () => {
     let capturedBlob: Blob | undefined
     const createObjectURL = vi.fn((blob: Blob) => {
       capturedBlob = blob
@@ -317,7 +323,7 @@ describe('exports', () => {
     click.mockClear()
 
     downloadCSV('Élise;50,8', 'fiche.csv')
-    expect(capturedBlob?.type).toBe('text/csv;charset=windows-1252')
+    expect(capturedBlob?.type).toBe('text/csv;charset=utf-8')
     expect(click).toHaveBeenCalledOnce()
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:csv')
   })

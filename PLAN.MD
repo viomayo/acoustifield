@@ -2,7 +2,7 @@
 
 ## État livré
 
-- [fait] Fiches de pose d'enregistreurs acoustiques : sections Type d'appareil, Contexte, Caractérisation du milieu, Météo, Photos du milieu et Commentaires, avec localisation en degrés décimaux collables (répartition automatique lat/lon), commune remplie par géocodage inverse, boutons carte et « Ma position », orientation de l'enregistreur réglable au curseur ou par boussole du téléphone, libellés et choix conformes au protocole d'échantillonnage (listes d'habitats, gestion, éclairage, type de nuit, conditions) et champ libre pour chaque choix « Autre » (support, habitat). Date de début de nuit, ouverture du milieu et description de l'habitat principal obligatoires. La température, la hauteur de pose et la localisation acceptent la virgule comme séparateur décimal (le point reste accepté).
+- [fait] Fiches de pose d'enregistreurs acoustiques : sections Type d'appareil, Contexte, Caractérisation du milieu, Météo, Photos du milieu et Commentaires, avec localisation en degrés décimaux collables (répartition automatique lat/lon), commune remplie par géocodage inverse, boutons carte et « Ma position », orientation de l'enregistreur réglable au curseur avec jauge visuelle, libellés et choix conformes au protocole d'échantillonnage (listes d'habitats, gestion, éclairage, type de nuit, conditions) et champ libre pour chaque choix « Autre » (support, habitat). Jour et heure de pose obligatoires, ouverture du milieu et description de l'habitat principal obligatoires. La température, la hauteur de pose et la localisation acceptent la virgule comme séparateur décimal (le point reste accepté).
 - [fait] Brouillon auto-sauvegardé dans localStorage et persistance IndexedDB (fiches, photos, tombstones, cache superviseur, profil offline) avec isolation par utilisateur.
 - [fait] Profil d'identité offline actif persistant, remplaçable ou désactivable sans purge des données métier.
 - [fait] Provider client global distinguant identité Supabase vérifiée, profil offline, session expirée et absence d'identité, sans autorisation superviseur locale.
@@ -16,16 +16,17 @@
 - [fait] Suppressions offline rejouées avec tombstones et conservation des erreurs.
 - [fait] Pull des fiches de l'utilisateur (import/fusion selon la révision distante) et cache superviseur local des fiches des autres enregistreurs (`remote_fiches` par compte).
 - [fait] RLS propriétaire et superviseur durcie par migrations versionnées (tables `fiches`, `photos`, `profiles`, `supervisors`).
-- [fait] Exports JSON (UTF-8) et CSV encodé Windows-1252 (séparateur `;`, accents lisibles dans Excel au double-clic, valeurs décimales à la virgule pour lat/lon, hauteur de pose et température, `user_id`/`user_name`, `nb_photos`, colonne `photos` listant les noms des fichiers liés).
+- [fait] Exports JSON (UTF-8) et CSV encodé UTF-8 avec BOM (séparateur `;`, accents et caractères spéciaux lisibles, valeurs décimales à la virgule pour lat/lon, hauteur de pose et température, `user_id`/`user_name`, `nb_photos`, colonne `photos` listant les noms des fichiers liés).
 - [fait] Exports renommés « Projet - Date - Site - Opérateur », photos nommées « Projet - Date - Site - Opérateur - NN.jpg », et téléchargement depuis le récapitulatif : un tableau CSV par projet (ZIP), JSON complet ou ZIP des photos (un dossier par fiche).
 - [fait] Duplication d'une fiche ouvrant une nouvelle fiche préremplie et modifiable (champs et photos copiés) ; nom du projet conservé pour la fiche suivante après « Sauvegarder et enregistrer une nouvelle fiche », sauf réinitialisation complète.
-- [fait] Nom du projet obligatoire (validation + astérisque), opérateur prérempli au prénom+nom de la personne connectée et modifiable, commune remplie par géocodage inverse avec repli sur BigDataCloud si Nominatim échoue, boussole avec repli automatique sur le curseur si indisponible, et conditions météo affichées par paires sur mobile (Pleine lune/Nuit noire, Vent léger/Vent fort).
+- [fait] Nom du projet obligatoire (validation + astérisque), opérateur prérempli au prénom+nom de la personne connectée et modifiable, commune remplie par géocodage inverse avec repli sur BigDataCloud si Nominatim échoue, orientation réglable au curseur avec jauge visuelle, et conditions météo affichées par paires sur mobile (Pleine lune/Nuit noire, Vent léger/Vent fort).
 - [fait] Bords et soulignés de l'interface passés au noir (anneaux de focus, onglets de la barre de navigation, survols, bandeau superviseur) ; icônes PWA régénérées avec une marge de sécurité (le motif ne touche plus les bords), version `?v=3`.
 - [fait] Profils utilisateurs contrôlés : table `profiles` préremplie au premier sign-in (nom Google), renommable localement, et noms affichés dans la vue superviseur.
 - [fait] Tests unitaires/intégration, scénarios Playwright et CI (qualité, couverture, build, audit, E2E, Supabase).
 - [fait] Échange PKCE du code OAuth déplacé vers la route serveur `/api/auth/exchange`, stockage Supabase verrouillé sur la clé `acoustifield-auth`, et page `/auth/auth-code-error` affichant l'erreur exacte renvoyée par Supabase.
 - [fait] Footer d'application mentionnant « Développé par viomayo » avec lien vers https://github.com/viomayo.
 - [fait] Mise à jour vers Next.js 16.3 et audit production sans vulnérabilité connue.
+- [fait] Corrections mobile PWA : viewport meta `width=device-width, initial-scale=1` pour le rendu correct sur iOS/Android, carte Leaflet avec `invalidateSize()` et `ResizeObserver` pour le redimensionnement dynamique, orientation simplifiée au curseur sans dépendance `DeviceOrientationEvent`.
 
 ## Déploiement
 

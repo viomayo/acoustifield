@@ -10,7 +10,9 @@ export interface FicheData {
   carteSdPleine: boolean
   projet: string
   operateur: string
-  dateDebutNuit: string
+  dateHeurePose: string
+  dateHeureRecherche: string
+  nbNuitsEcoute: number | null
   siteNom: string
   lat: number | null
   lon: number | null
@@ -46,7 +48,9 @@ export interface FicheDraft {
   carteSdPleine: boolean
   projet: string
   operateur: string
-  dateDebutNuit: string
+  dateHeurePose: string
+  dateHeureRecherche: string
+  nbNuitsEcoute: number | null
   siteNom: string
   lat: number | null
   lon: number | null
@@ -156,6 +160,16 @@ export const CONDITIONS_METEO = [
   'Vent fort',
 ] as const
 
+export function computeNbNuitsEcoute(pose: string, recherche: string): number | null {
+  if (!pose || !recherche) return null
+  const d1 = new Date(pose)
+  const d2 = new Date(recherche)
+  if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return null
+  const ms = d2.getTime() - d1.getTime()
+  if (ms <= 0) return 0
+  return Math.ceil(ms / (1000 * 60 * 60 * 24))
+}
+
 export function defaultFiche(ownerId: string): FicheData {
   const now = new Date().toISOString()
   return {
@@ -167,7 +181,9 @@ export function defaultFiche(ownerId: string): FicheData {
     carteSdPleine: false,
     projet: '',
     operateur: '',
-    dateDebutNuit: '',
+    dateHeurePose: '',
+    dateHeureRecherche: '',
+    nbNuitsEcoute: null,
     siteNom: '',
     lat: null,
     lon: null,
@@ -205,7 +221,9 @@ export function draftFromFiche(fiche: FicheData, photoCount: number): FicheDraft
     carteSdPleine: fiche.carteSdPleine,
     projet: fiche.projet,
     operateur: fiche.operateur,
-    dateDebutNuit: fiche.dateDebutNuit,
+    dateHeurePose: fiche.dateHeurePose,
+    dateHeureRecherche: fiche.dateHeureRecherche,
+    nbNuitsEcoute: fiche.nbNuitsEcoute,
     siteNom: fiche.siteNom,
     lat: fiche.lat,
     lon: fiche.lon,
@@ -248,7 +266,9 @@ export function loadDraft(): Partial<FicheDraft> | null {
       carteSdPleine: parsed.carteSdPleine === true,
       projet: isString(parsed.projet) ? parsed.projet : '',
       operateur: isString(parsed.operateur) ? parsed.operateur : '',
-      dateDebutNuit: isString(parsed.dateDebutNuit) ? parsed.dateDebutNuit : '',
+      dateHeurePose: isString(parsed.dateHeurePose) ? parsed.dateHeurePose : '',
+      dateHeureRecherche: isString(parsed.dateHeureRecherche) ? parsed.dateHeureRecherche : '',
+      nbNuitsEcoute: typeof parsed.nbNuitsEcoute === 'number' ? parsed.nbNuitsEcoute : null,
       siteNom: isString(parsed.siteNom) ? parsed.siteNom : '',
       lat: typeof parsed.lat === 'number' && Number.isFinite(parsed.lat) ? parsed.lat : null,
       lon: typeof parsed.lon === 'number' && Number.isFinite(parsed.lon) ? parsed.lon : null,
@@ -320,7 +340,8 @@ export function ficheIsEmpty(draft: Partial<FicheDraft>): boolean {
     draft.microNum ||
     draft.projet ||
     draft.operateur ||
-    draft.dateDebutNuit ||
+    draft.dateHeurePose ||
+    draft.dateHeureRecherche ||
     draft.siteNom ||
     draft.lat != null ||
     draft.lon != null ||

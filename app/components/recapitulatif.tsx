@@ -135,7 +135,8 @@ export default function Recapitulatif() {
         row.fiche.appareilType,
         row.fiche.boitierNum,
         row.fiche.microNum,
-        row.fiche.dateDebutNuit,
+        row.fiche.dateHeurePose,
+        row.fiche.dateHeureRecherche,
       ].join(' ').toLowerCase()
       return haystack.includes(query)
     })
@@ -456,7 +457,7 @@ function FicheCard({
             )}
           </div>
           <p className="text-xs text-foreground/50">
-            {[fiche.dateDebutNuit, fiche.appareilType, fiche.projet].filter(Boolean).join(' · ') || 'Fiche'}
+            {[fiche.dateHeurePose, fiche.appareilType, fiche.projet].filter(Boolean).join(' · ') || 'Fiche'}
           </p>
           <p className="text-xs text-foreground/50">
             {[fiche.operateur, fiche.commune].filter(Boolean).join(' · ')}
@@ -509,7 +510,7 @@ function RemoteCard({ fiche, onOpen }: { fiche: RemoteFicheData; onOpen: () => v
         <div className="flex flex-col gap-0.5 min-w-0">
           <span className="text-sm font-semibold truncate">{fiche.siteNom || 'Site sans nom'}</span>
           <span className="text-xs text-foreground/50">
-            {[fiche.userName, fiche.dateDebutNuit, fiche.appareilType].filter(Boolean).join(' · ')}
+            {[fiche.userName, fiche.dateHeurePose, fiche.appareilType].filter(Boolean).join(' · ')}
           </span>
           <span className="text-xs text-foreground/45 flex items-center gap-1">
             <Camera size={11} /> {fiche.photos.length} photo{fiche.photos.length > 1 ? 's' : ''}
@@ -565,7 +566,9 @@ function DetailsModal({
     ['Carte SD pleine', fiche.carteSdPleine ? 'Oui' : 'Non'],
     ['Projet', fiche.projet || '—'],
     ['Opérateur', fiche.operateur || '—'],
-    ['Nuit du', fiche.dateDebutNuit || '—'],
+    ['Jour et heure de pose', fiche.dateHeurePose || '—'],
+    ['Jour et heure de recherche', fiche.dateHeureRecherche || '—'],
+    ['Nombre de nuits d\'écoute', fiche.nbNuitsEcoute != null ? `${fiche.nbNuitsEcoute} nuit${fiche.nbNuitsEcoute > 1 ? 's' : ''}` : '—'],
     ['Position', fiche.lat != null && fiche.lon != null ? `${fiche.lat.toFixed(6)}, ${fiche.lon.toFixed(6)}` : '—'],
     ['Commune', fiche.commune || '—'],
     ['Posé sur', [fiche.surElement, fiche.surElementAutre].filter(Boolean).join(' — ') || '—'],

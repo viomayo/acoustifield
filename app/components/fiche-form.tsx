@@ -17,6 +17,7 @@ import {
   TYPES_NUIT,
   clearDraft,
   clearLastProject,
+  computeNbNuitsEcoute,
   defaultFiche,
   draftFromFiche,
   ficheIsEmpty,
@@ -238,11 +239,18 @@ export default function FicheForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fiche.lat, fiche.lon])
 
+  useEffect(() => {
+    const computed = computeNbNuitsEcoute(fiche.dateHeurePose, fiche.dateHeureRecherche)
+    if (computed !== fiche.nbNuitsEcoute) {
+      setFiche((prev) => ({ ...prev, nbNuitsEcoute: computed, updatedAt: new Date().toISOString() }))
+    }
+  }, [fiche.dateHeurePose, fiche.dateHeureRecherche, fiche.nbNuitsEcoute])
+
   async function handleSave() {
     if (!ownerId) return
     const missing: string[] = []
     if (!fiche.projet.trim()) missing.push('le nom du projet')
-    if (!fiche.dateDebutNuit) missing.push('la date de pose')
+    if (!fiche.dateHeurePose) missing.push('la date et l\'heure de pose')
     if (!fiche.ouverturePaysage) missing.push("l'ouverture du milieu")
     if (!fiche.habitatPrincipal) missing.push("la description de l'habitat principal")
     if (missing.length > 0) {
@@ -374,11 +382,24 @@ export default function FicheForm() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <TextInput
-            label="Date de début de nuit *"
-            type="date"
-            value={fiche.dateDebutNuit}
-            onChange={(v) => update('dateDebutNuit', v)}
+            label="Jour et heure de pose *"
+            type="datetime-local"
+            value={fiche.dateHeurePose}
+            onChange={(v) => update('dateHeurePose', v)}
           />
+          <TextInput
+            label="Jour et heure de recherche"
+            type="datetime-local"
+            value={fiche.dateHeureRecherche}
+            onChange={(v) => update('dateHeureRecherche', v)}
+          />
+        </div>
+        {fiche.nbNuitsEcoute != null && (
+          <span className="text-xs text-foreground/60">
+            Nombre de nuits d&apos;écoute : <strong>{fiche.nbNuitsEcoute}</strong> nuit{fiche.nbNuitsEcoute > 1 ? 's' : ''}
+          </span>
+        )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <TextInput label="Nom du site" value={fiche.siteNom} onChange={(v) => update('siteNom', v)} placeholder="Ex. étang de la Hulotte" />
         </div>
 

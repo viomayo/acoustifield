@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react'
 import { ClipboardPaste, LocateFixed, MapPin, X } from 'lucide-react'
 import { parseWgs84, isValidLat, isValidLon } from '@/lib/geo'
 import type { Map as LeafletMapType, Marker as LeafletMarker, LeafletMouseEvent } from 'leaflet'
-import 'leaflet/dist/leaflet.css'
 
 const DEFAULT_CENTER: [number, number] = [50.85, 4.35]
 const DEFAULT_ZOOM = 11
@@ -62,8 +61,8 @@ export default function MapModal({ lat, lon, onConfirm, onClose }: MapModalProps
   }
 
   return (
-    <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/50 p-2 sm:p-4">
+      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl flex flex-col" style={{ maxHeight: '90vh', height: '80vh' }}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-foreground/10">
           <div className="flex items-center gap-2">
             <MapPin size={16} className="text-accent" />
@@ -114,7 +113,7 @@ export default function MapModal({ lat, lon, onConfirm, onClose }: MapModalProps
           <p className="px-5 py-2 text-xs text-red-600">{pasteError}</p>
         )}
 
-        <div className="flex-1 min-h-[300px] relative">
+        <div className="flex-1 relative" style={{ minHeight: 250 }}>
           <LeafletMap
             center={position}
             onChange={(next) => setPosition(next)}
@@ -149,24 +148,26 @@ function LeafletMap({
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<{ map: LeafletMapType; marker: LeafletMarker } | null>(null)
   const onChangeRef = useRef(onChange)
+  const [ready, setReady] = useState(false)
 
   useEffect(() => {
     onChangeRef.current = onChange
   }, [onChange])
 
   useEffect(() => {
+    if (!containerRef.current || mapRef.current) return
     let active = true
-    let map: L.Map | null = null
-    let marker: L.Marker | null = null
 
     import('leaflet').then(({ default: L }) => {
       if (!active || !containerRef.current) return
-      map = L.map(containerRef.current, {
+
+      const map = L.map(containerRef.current, {
         center: center ? [center.lat, center.lon] : DEFAULT_CENTER,
         zoom: center ? 16 : DEFAULT_ZOOM,
         zoomControl: true,
         attributionControl: true,
       })
+
       L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; OpenStreetMap &copy; CARTO',
         subdomains: 'abcd',
@@ -180,28 +181,37 @@ function LeafletMap({
         iconAnchor: [10, 10],
       })
 
-      marker = L.marker(center ? [center.lat, center.lon] : DEFAULT_CENTER, {
+      const marker = L.marker(center ? [center.lat, center.lon] : DEFAULT_CENTER, {
         icon,
         draggable: true,
       }).addTo(map)
 
       map.on('click', (event: LeafletMouseEvent) => {
         const next = { lat: event.latlng.lat, lon: event.latlng.lng }
-        marker?.setLatLng(event.latlng)
+        marker.setLatLng(event.latlng)
         onChangeRef.current(next)
       })
       marker.on('dragend', () => {
-        const latlng = marker?.getLatLng()
-        if (latlng) onChangeRef.current({ lat: latlng.lat, lon: latlng.lng })
+        const latlng = marker.getLatLng()
+        onChangeRef.current({ lat: latlng.lat, lon: latlng.lng })
       })
 
       mapRef.current = { map, marker }
+
+      setTimeout(() => {
+        if (active && map) map.invalidateSize()
+      }, 100)
+      setTimeout(() => {
+        if (active && map) map.invalidateSize()
+      }, 500)
+
+      setReady(true)
     })
 
     return () => {
       active = false
+      mapRef.current?.map.remove()
       mapRef.current = null
-      map?.remove()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -214,5 +224,21 @@ function LeafletMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [center?.lat, center?.lon])
 
-  return <div ref={containerRef} className="absolute inset-0 z-0" />
+  useEffect(() => {
+    if (!ready) return
+    const container = containerRef.current
+    const mapInstance = mapRef.current?.map
+    if (!container || !mapInstance) return
+
+    const ro = new ResizeObserver(() => mapInstance.invalidateSize())
+    ro.observe(container)
+    return () => ro.disconnect()
+  }, [ready])
+
+  return (
+    <div
+      ref={containerRef}
+      style={{ width: '100%', height: '100%', minHeight: 300, background: '#e5e3df' }}
+    />
+  )
 }

@@ -51,7 +51,9 @@ function remoteRow(fiche: FicheData, revision = 1): Row {
     carte_sd_pleine: fiche.carteSdPleine,
     projet: fiche.projet,
     operateur: fiche.operateur,
-    date_debut_nuit: fiche.dateDebutNuit || null,
+    date_heure_pose: fiche.dateHeurePose || null,
+    date_heure_recherche: fiche.dateHeureRecherche || null,
+    nb_nuits_ecoute: fiche.nbNuitsEcoute,
     site_nom: fiche.siteNom,
     lat: fiche.lat,
     lon: fiche.lon,
@@ -174,17 +176,17 @@ beforeEach(() => {
 
 describe('synchronisation Supabase', () => {
   it('labels a fiche from its date, device and site', () => {
-    expect(ficheLabel(makeFiche())).toBe('2026-08-14 — SM4BAT — Étang de la Hulotte')
-    expect(ficheLabel(makeFiche({ dateDebutNuit: '', appareilType: '', siteNom: '  ' }))).toBe('Fiche sans titre')
+    expect(ficheLabel(makeFiche())).toBe('2026-08-14T20:00 — SM4BAT — Étang de la Hulotte')
+    expect(ficheLabel(makeFiche({ dateHeurePose: '', appareilType: '', siteNom: '  ' }))).toBe('Fiche sans titre')
   })
 
   it('maps a fiche and its uploaded photos into a snapshot', async () => {
-    const fiche = makeFiche({ dateDebutNuit: '' })
+    const fiche = makeFiche({ dateHeurePose: '' })
     const uploaded = makePhoto({ storagePath: 'user-a/fiche-1/0-photo-1.jpg' })
     const pending = makePhoto({ id: 'p-pending', storagePath: null })
     const snapshot = await buildLocalSnapshot(fiche, [uploaded, pending])
     expect(snapshot.fiche.appareil_type).toBe('SM4BAT')
-    expect(snapshot.fiche.date_debut_nuit).toBeNull()
+    expect(snapshot.fiche.date_heure_pose).toBeNull()
     expect(snapshot.fiche.created_at).toBe(fiche.createdAt)
     expect(snapshot.photos).toEqual([
       { id: 'photo-1', storage_path: 'user-a/fiche-1/0-photo-1.jpg', position: 0 },
@@ -208,7 +210,7 @@ describe('synchronisation Supabase', () => {
     expect(conflict.fields.map((field) => field.field)).toEqual(['Météo'])
     expect(await buildSyncConflict(local, makeFiche())).toEqual({
       ficheId: 'fiche-1',
-      ficheLabel: '2026-08-14 — SM4BAT — Étang de la Hulotte',
+      ficheLabel: '2026-08-14T20:00 — SM4BAT — Étang de la Hulotte',
       fields: [],
     })
   })

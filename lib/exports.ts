@@ -36,7 +36,7 @@ export function encodeWindows1252(text: string): Uint8Array<ArrayBuffer> {
 }
 
 const CSV_HEADER = [
-  'fiche_id', 'user_id', 'user_name', 'date_debut_nuit', 'appareil_type', 'boitier_num', 'micro_num',
+  'fiche_id', 'user_id', 'user_name', 'date_heure_pose', 'date_heure_recherche', 'nb_nuits_ecoute', 'appareil_type', 'boitier_num', 'micro_num',
   'carte_sd_pleine', 'projet', 'operateur', 'site_nom', 'lat', 'lon', 'commune',
   'sur_element', 'sur_element_autre', 'ouverture_paysage', 'habitat_principal', 'habitat_secondaire',
   'habitat_principal_autre', 'habitat_secondaire_autre',
@@ -51,7 +51,9 @@ function csvRow(fiche: FicheData, photoCount: number, user?: CsvUser, photoNames
     fiche.id,
     user?.id ?? fiche.ownerId,
     user?.name ?? '',
-    fiche.dateDebutNuit,
+    fiche.dateHeurePose,
+    fiche.dateHeureRecherche,
+    fiche.nbNuitsEcoute != null ? String(fiche.nbNuitsEcoute) : '',
     fiche.appareilType,
     fiche.boitierNum,
     fiche.microNum,
@@ -126,7 +128,7 @@ export function fichesToJSON(
   }, null, 2)
 }
 
-export function photoFileName(fiche: Pick<FicheData, 'projet' | 'dateDebutNuit' | 'siteNom' | 'operateur'>, position: number): string {
+export function photoFileName(fiche: Pick<FicheData, 'projet' | 'dateHeurePose' | 'siteNom' | 'operateur'>, position: number): string {
   return `${exportBasename(fiche)} - ${String(position + 1).padStart(2, '0')}.jpg`
 }
 
@@ -172,7 +174,7 @@ export async function buildProjectCsvZip(groups: ProjectCsvGroup[]): Promise<Blo
       counter += 1
     }
     usedNames.add(unique)
-    zip.file(`${unique}.csv`, encodeWindows1252(group.csv))
+    zip.file(`${unique}.csv`, '\uFEFF' + group.csv)
   }
   return zip.generateAsync({ type: 'blob' })
 }
@@ -187,8 +189,8 @@ function sanitizeFilePart(text: string): string {
     .slice(0, 80)
 }
 
-export function exportBasename(fiche: Pick<FicheData, 'projet' | 'dateDebutNuit' | 'siteNom' | 'operateur'>): string {
-  const parts = [fiche.projet, fiche.dateDebutNuit, fiche.siteNom, fiche.operateur]
+export function exportBasename(fiche: Pick<FicheData, 'projet' | 'dateHeurePose' | 'siteNom' | 'operateur'>): string {
+  const parts = [fiche.projet, fiche.dateHeurePose, fiche.siteNom, fiche.operateur]
     .map(sanitizeFilePart)
     .filter(Boolean)
   return parts.join(' - ') || 'fiche'
@@ -204,7 +206,7 @@ export function downloadText(content: string, filename: string, mime: string) {
 }
 
 export function downloadCSV(content: string, filename: string) {
-  const url = URL.createObjectURL(new Blob([encodeWindows1252(content)], { type: 'text/csv;charset=windows-1252' }))
+  const url = URL.createObjectURL(new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8' }))
   const anchor = document.createElement('a')
   anchor.href = url
   anchor.download = filename

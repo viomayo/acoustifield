@@ -23,8 +23,8 @@ describe('CompassField', () => {
     expect(screen.getByText('180°')).toBeInTheDocument()
   })
 
-  it('disables the compass button without device orientation support', () => {
+  it('shows helper text for manual adjustment', () => {
     render(<CompassField value={null} onChange={() => {}} />)
-    expect(screen.getByRole('button', { name: /Utiliser la boussole/ })).toBeDisabled()
+    expect(screen.getByText(/Règle le curseur à la main/)).toBeInTheDocument()
   })
 })
