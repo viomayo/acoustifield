@@ -62,6 +62,7 @@ function TextInput({
   step,
   min,
   max,
+  readOnly,
 }: {
   label: string
   value: string
@@ -73,6 +74,7 @@ function TextInput({
   step?: string
   min?: string
   max?: string
+  readOnly?: boolean
 }) {
   return (
     <label className="flex flex-col gap-1">
@@ -85,8 +87,9 @@ function TextInput({
         step={step}
         min={min}
         max={max}
+        readOnly={readOnly}
         onChange={(e) => onChange(e.target.value)}
-        className="px-3 py-2 rounded-lg border border-foreground/10 bg-white text-sm text-foreground placeholder:text-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/40 w-full"
+        className="px-3 py-2 rounded-lg border border-foreground/10 bg-white text-sm text-foreground placeholder:text-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/40 w-full read-only:bg-foreground/5 read-only:cursor-default"
       />
       {hint && <span className="text-xs text-foreground/50">{hint}</span>}
     </label>
@@ -392,8 +395,8 @@ export default function FicheForm() {
             <span className="text-xs text-foreground/50">Coordonnées en WGS84 (degrés décimaux)</span>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <TextInput label="Latitude (auto)" value={latText} onChange={() => {}} inputMode="decimal" />
-            <TextInput label="Longitude (auto)" value={lonText} onChange={() => {}} inputMode="decimal" />
+            <TextInput label="Latitude (auto)" value={latText} onChange={() => {}} inputMode="decimal" readOnly />
+            <TextInput label="Longitude (auto)" value={lonText} onChange={() => {}} inputMode="decimal" readOnly />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <button

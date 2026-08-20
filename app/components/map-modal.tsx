@@ -129,6 +129,9 @@ export default function MapModal({ lat, lon, onConfirm, onClose }: MapModalProps
               className="w-full pl-9 pr-3 py-2 rounded-lg border border-foreground/10 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-foreground/40"
             />
           </div>
+          <span className="text-xs text-foreground/50">
+            Formats acceptés : 50.8376, 4.3512 / 50,8376 ; 4,3512 / 50°50&apos;15&quot;N 4°21&apos;4&quot;E
+          </span>
 
           <div className="flex gap-2">
             <button
