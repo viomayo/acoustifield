@@ -1,12 +1,8 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ClipboardPaste, LocateFixed, MapPin, X } from 'lucide-react'
-import { parseWgs84, isValidLat, isValidLon } from '@/lib/geo'
-import type { Map as LeafletMapType, Marker as LeafletMarker, LeafletMouseEvent } from 'leaflet'
-
-const DEFAULT_CENTER: [number, number] = [50.85, 4.35]
-const DEFAULT_ZOOM = 11
+import { parseWgs84 } from '@/lib/geo'
 
 interface MapModalProps {
   lat: number | null
@@ -16,12 +12,11 @@ interface MapModalProps {
 }
 
 export default function MapModal({ lat, lon, onConfirm, onClose }: MapModalProps) {
-  const [position, setPosition] = useState<{ lat: number; lon: number } | null>(
-    lat != null && lon != null && isValidLat(lat) && isValidLon(lon) ? { lat, lon } : null,
-  )
+  const [latText, setLatText] = useState(lat != null ? String(lat) : '')
+  const [lonText, setLonText] = useState(lon != null ? String(lon) : '')
   const [pasteValue, setPasteValue] = useState('')
   const [locating, setLocating] = useState(false)
-  const [pasteError, setPasteError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     function handleKey(event: KeyboardEvent) {
@@ -31,214 +26,159 @@ export default function MapModal({ lat, lon, onConfirm, onClose }: MapModalProps
     return () => window.removeEventListener('keydown', handleKey)
   }, [onClose])
 
+  function parseNum(raw: string): number | null {
+    const normalized = raw.replace(',', '.').trim()
+    if (normalized === '') return null
+    const n = Number(normalized)
+    return Number.isFinite(n) ? n : null
+  }
+
   function handlePaste() {
     const parsed = parseWgs84(pasteValue)
     if (!parsed) {
-      setPasteError('Coordonnées illisibles. Essaye « 50.8376, 4.3512 » ou « 50°50\'15"N 4°21\'4"E »')
+      setError('Coordonnées illisibles. Essaye « 50.8376, 4.3512 » ou « 50°50\'15"N 4°21\'4"E »')
       return
     }
-    setPasteError(null)
-    setPosition(parsed)
+    setError(null)
+    setLatText(String(parsed.lat))
+    setLonText(String(parsed.lon))
   }
 
   function handleLocate() {
     if (!('geolocation' in navigator)) {
-      setPasteError('Géolocalisation indisponible sur cet appareil')
+      setError('Géolocalisation indisponible sur cet appareil')
       return
     }
     setLocating(true)
     navigator.geolocation.getCurrentPosition(
       (result) => {
-        setPosition({ lat: result.coords.latitude, lon: result.coords.longitude })
+        setLatText(String(result.coords.latitude))
+        setLonText(String(result.coords.longitude))
         setLocating(false)
       },
       () => {
         setLocating(false)
-        setPasteError('Impossible de récupérer ta position')
+        setError('Impossible de récupérer ta position')
       },
       { enableHighAccuracy: true, timeout: 10000 },
     )
   }
 
+  function handleConfirm() {
+    const latVal = parseNum(latText)
+    const lonVal = parseNum(lonText)
+    if (latVal == null || lonVal == null) {
+      setError('Renseigne latitude et longitude')
+      return
+    }
+    setError(null)
+    onConfirm({ lat: latVal, lon: lonVal })
+  }
+
+  const hasPosition = parseNum(latText) != null && parseNum(lonText) != null
+
   return (
-    <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/50 p-2 sm:p-4">
-      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl flex flex-col" style={{ maxHeight: '90vh', height: '80vh' }}>
+    <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl flex flex-col">
         <div className="flex items-center justify-between px-5 py-4 border-b border-foreground/10">
           <div className="flex items-center gap-2">
             <MapPin size={16} className="text-accent" />
-            <span className="text-sm font-semibold">Position sur la carte</span>
+            <span className="text-sm font-semibold">Position GPS</span>
           </div>
           <button
             type="button"
             onClick={onClose}
             className="w-7 h-7 flex items-center justify-center rounded-lg text-foreground/40 hover:text-foreground hover:bg-foreground/5 transition-colors cursor-pointer"
-            aria-label="Fermer la carte"
+            aria-label="Fermer"
           >
             <X size={14} />
           </button>
         </div>
 
-        <div className="px-5 py-3 border-b border-foreground/10 flex flex-col sm:flex-row gap-2 bg-foreground/[0.02]">
-          <div className="relative flex-1">
+        <div className="px-5 py-4 flex flex-col gap-3">
+          <div className="grid grid-cols-2 gap-2">
+            <label className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-foreground">Latitude</span>
+              <input
+                value={latText}
+                onChange={(e) => setLatText(e.target.value)}
+                placeholder="ex : 50.8376"
+                inputMode="decimal"
+                className="px-3 py-2 rounded-lg border border-foreground/10 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-foreground/40 w-full"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-foreground">Longitude</span>
+              <input
+                value={lonText}
+                onChange={(e) => setLonText(e.target.value)}
+                placeholder="ex : 4.3512"
+                inputMode="decimal"
+                className="px-3 py-2 rounded-lg border border-foreground/10 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-foreground/40 w-full"
+              />
+            </label>
+          </div>
+
+          <div className="relative">
             <ClipboardPaste size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/40" />
             <input
               value={pasteValue}
               onChange={(e) => setPasteValue(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handlePaste() }}
-              placeholder="Coller des coordonnées WGS84…"
+              placeholder="Ou coller des coordonnées WGS84…"
               className="w-full pl-9 pr-3 py-2 rounded-lg border border-foreground/10 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-foreground/40"
             />
           </div>
+
           <div className="flex gap-2">
             <button
               type="button"
               onClick={handlePaste}
-              className="px-3 py-2 rounded-lg text-xs font-medium border border-foreground/10 hover:bg-foreground/5 transition-colors cursor-pointer"
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-foreground/10 hover:bg-foreground/5 transition-colors cursor-pointer"
             >
+              <ClipboardPaste size={13} />
               Coller
             </button>
             <button
               type="button"
               onClick={handleLocate}
               disabled={locating}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-foreground/10 hover:bg-foreground/5 disabled:opacity-50 transition-colors cursor-pointer"
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-foreground/10 hover:bg-foreground/5 disabled:opacity-50 transition-colors cursor-pointer"
             >
               <LocateFixed size={13} />
               {locating ? '…' : 'Ma position'}
             </button>
           </div>
+
+          {error && (
+            <p className="text-xs text-red-600">{error}</p>
+          )}
+
+          {hasPosition && (
+            <p className="text-xs text-foreground/50 font-mono text-center">
+              {Number(parseNum(latText)).toFixed(6)}, {Number(parseNum(lonText)).toFixed(6)}
+            </p>
+          )}
         </div>
 
-        {pasteError && (
-          <p className="px-5 py-2 text-xs text-red-600">{pasteError}</p>
-        )}
-
-        <div className="flex-1 relative" style={{ minHeight: 250 }}>
-          <LeafletMap
-            center={position}
-            onChange={(next) => setPosition(next)}
-          />
-        </div>
-
-        <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-foreground/10">
-          <p className="text-xs text-foreground/50 font-mono">
-            {position ? `${position.lat.toFixed(6)}, ${position.lon.toFixed(6)}` : 'Clique sur la carte pour placer le point'}
-          </p>
+        <div className="flex gap-2 px-5 py-4 border-t border-foreground/10">
           <button
             type="button"
-            disabled={!position}
-            onClick={() => position && onConfirm(position)}
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-accent text-white hover:bg-accent/90 disabled:opacity-40 transition-colors cursor-pointer"
+            onClick={onClose}
+            className="flex-1 px-3 py-2.5 rounded-lg text-sm font-medium border border-foreground/10 hover:bg-foreground/5 transition-colors cursor-pointer"
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            disabled={!hasPosition}
+            onClick={handleConfirm}
+            className="flex-1 px-3 py-2.5 rounded-lg text-sm font-medium bg-accent text-white hover:bg-accent/90 disabled:opacity-40 transition-colors cursor-pointer"
           >
             Valider
           </button>
         </div>
       </div>
     </div>
-  )
-}
-
-function LeafletMap({
-  center,
-  onChange,
-}: {
-  center: { lat: number; lon: number } | null
-  onChange: (position: { lat: number; lon: number }) => void
-}) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const mapRef = useRef<{ map: LeafletMapType; marker: LeafletMarker } | null>(null)
-  const onChangeRef = useRef(onChange)
-  const [ready, setReady] = useState(false)
-
-  useEffect(() => {
-    onChangeRef.current = onChange
-  }, [onChange])
-
-  useEffect(() => {
-    if (!containerRef.current || mapRef.current) return
-    let active = true
-
-    import('leaflet').then(({ default: L }) => {
-      if (!active || !containerRef.current) return
-
-      const map = L.map(containerRef.current, {
-        center: center ? [center.lat, center.lon] : DEFAULT_CENTER,
-        zoom: center ? 16 : DEFAULT_ZOOM,
-        zoomControl: true,
-        attributionControl: true,
-      })
-
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap &copy; CARTO',
-        subdomains: 'abcd',
-        maxZoom: 20,
-      }).addTo(map)
-
-      const icon = L.divIcon({
-        className: '',
-        html: '<div style="width:20px;height:20px;border-radius:50%;background:#c2762a;border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>',
-        iconSize: [20, 20],
-        iconAnchor: [10, 10],
-      })
-
-      const marker = L.marker(center ? [center.lat, center.lon] : DEFAULT_CENTER, {
-        icon,
-        draggable: true,
-      }).addTo(map)
-
-      map.on('click', (event: LeafletMouseEvent) => {
-        const next = { lat: event.latlng.lat, lon: event.latlng.lng }
-        marker.setLatLng(event.latlng)
-        onChangeRef.current(next)
-      })
-      marker.on('dragend', () => {
-        const latlng = marker.getLatLng()
-        onChangeRef.current({ lat: latlng.lat, lon: latlng.lng })
-      })
-
-      mapRef.current = { map, marker }
-
-      setTimeout(() => {
-        if (active && map) map.invalidateSize()
-      }, 100)
-      setTimeout(() => {
-        if (active && map) map.invalidateSize()
-      }, 500)
-
-      setReady(true)
-    })
-
-    return () => {
-      active = false
-      mapRef.current?.map.remove()
-      mapRef.current = null
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  useEffect(() => {
-    const current = mapRef.current
-    if (!current || !center) return
-    current.marker.setLatLng([center.lat, center.lon])
-    current.map.panTo([center.lat, center.lon])
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [center?.lat, center?.lon])
-
-  useEffect(() => {
-    if (!ready) return
-    const container = containerRef.current
-    const mapInstance = mapRef.current?.map
-    if (!container || !mapInstance) return
-
-    const ro = new ResizeObserver(() => mapInstance.invalidateSize())
-    ro.observe(container)
-    return () => ro.disconnect()
-  }, [ready])
-
-  return (
-    <div
-      ref={containerRef}
-      style={{ width: '100%', height: '100%', minHeight: 300, background: '#e5e3df' }}
-    />
   )
 }

@@ -2,7 +2,7 @@
 
 ## État livré
 
-- [fait] Fiches de pose d'enregistreurs acoustiques : sections Type d'appareil, Contexte, Caractérisation du milieu, Météo, Photos du milieu et Commentaires, avec localisation en degrés décimaux collables (répartition automatique lat/lon), commune remplie par géocodage inverse, boutons carte et « Ma position », orientation de l'enregistreur réglable au curseur avec jauge visuelle, libellés et choix conformes au protocole d'échantillonnage (listes d'habitats, gestion, éclairage, type de nuit, conditions) et champ libre pour chaque choix « Autre » (support, habitat). Jour et heure de pose obligatoires, ouverture du milieu et description de l'habitat principal obligatoires. La température, la hauteur de pose et la localisation acceptent la virgule comme séparateur décimal (le point reste accepté).
+- [fait] Fiches de pose d'enregistreurs acoustiques : sections Type d'appareil, Contexte, Caractérisation du milieu, Météo, Photos du milieu et Commentaires, avec localisation en degrés décimaux collables (répartition automatique lat/lon), commune remplie par géocodage inverse, boutons « Position GPS » et « Ma position », orientation de l'enregistreur réglable au curseur avec jauge visuelle, libellés et choix conformes au protocole d'échantillonnage (listes d'habitats, gestion, éclairage, type de nuit, conditions) et champ libre pour chaque choix « Autre » (support, habitat). Jour et heure de pose obligatoires, ouverture du milieu et description de l'habitat principal obligatoires. La température, la hauteur de pose et la localisation acceptent la virgule comme séparateur décimal (le point reste accepté).
 - [fait] Brouillon auto-sauvegardé dans localStorage et persistance IndexedDB (fiches, photos, tombstones, cache superviseur, profil offline) avec isolation par utilisateur.
 - [fait] Profil d'identité offline actif persistant, remplaçable ou désactivable sans purge des données métier.
 - [fait] Provider client global distinguant identité Supabase vérifiée, profil offline, session expirée et absence d'identité, sans autorisation superviseur locale.
@@ -26,7 +26,7 @@
 - [fait] Échange PKCE du code OAuth déplacé vers la route serveur `/api/auth/exchange`, stockage Supabase verrouillé sur la clé `acoustifield-auth`, et page `/auth/auth-code-error` affichant l'erreur exacte renvoyée par Supabase.
 - [fait] Footer d'application mentionnant « Développé par viomayo » avec lien vers https://github.com/viomayo.
 - [fait] Mise à jour vers Next.js 16.3 et audit production sans vulnérabilité connue.
-- [fait] Corrections mobile PWA : viewport meta `width=device-width, initial-scale=1` pour le rendu correct sur iOS/Android, carte Leaflet avec `invalidateSize()` et `ResizeObserver` pour le redimensionnement dynamique, orientation simplifiée au curseur sans dépendance `DeviceOrientationEvent`.
+- [fait] Corrections mobile PWA : viewport meta `width=device-width, initial-scale=1` pour le rendu correct sur iOS/Android, sélecteur de position GPS sans dépendance Leaflet (champs lat/lon + collage WGS84 + géolocalisation), orientation simplifiée au curseur sans dépendance `DeviceOrientationEvent`.
 
 ## Déploiement
 
