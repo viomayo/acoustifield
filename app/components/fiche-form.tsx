@@ -196,7 +196,7 @@ export default function FicheForm() {
   const [fiche, setFiche] = useState<FicheData>(() => {
     const base = defaultFiche(ownerId || 'preview')
     if (initialDraft) {
-      return {
+      const draft: FicheData = {
         ...base,
         ...initialDraft,
         createdAt: initialDraft.createdAt ?? base.createdAt,
@@ -204,6 +204,8 @@ export default function FicheForm() {
         syncedAt: initialDraft.syncedAt ?? null,
         lastSyncedRemoteRevision: initialDraft.lastSyncedRemoteRevision ?? null,
       }
+      draft.nbNuitsEcoute = computeNbNuitsEcoute(draft.dateHeurePose, draft.dateHeureRecherche)
+      return draft
     }
     base.projet = getLastProject()
     return base
@@ -239,7 +241,13 @@ export default function FicheForm() {
   }, [fiche, photoCount, ownerId, savedOnce])
 
   const update = useCallback(<K extends keyof FicheData>(key: K, value: FicheData[K]) => {
-    setFiche((prev) => ({ ...prev, [key]: value, updatedAt: new Date().toISOString() }))
+    setFiche((prev) => {
+      const next: FicheData = { ...prev, [key]: value, updatedAt: new Date().toISOString() }
+      if (key === 'dateHeurePose' || key === 'dateHeureRecherche') {
+        next.nbNuitsEcoute = computeNbNuitsEcoute(next.dateHeurePose, next.dateHeureRecherche)
+      }
+      return next
+    })
   }, [])
 
   const [autoFilledFor, setAutoFilledFor] = useState<string | null>(null)
@@ -263,13 +271,6 @@ export default function FicheForm() {
       .finally(() => setReverseGeocoding(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fiche.lat, fiche.lon])
-
-  useEffect(() => {
-    const computed = computeNbNuitsEcoute(fiche.dateHeurePose, fiche.dateHeureRecherche)
-    if (computed !== fiche.nbNuitsEcoute) {
-      setFiche((prev) => ({ ...prev, nbNuitsEcoute: computed, updatedAt: new Date().toISOString() }))
-    }
-  }, [fiche.dateHeurePose, fiche.dateHeureRecherche, fiche.nbNuitsEcoute])
 
   async function handleSave() {
     if (!ownerId) return
