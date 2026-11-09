@@ -6,93 +6,55 @@ export function isValidLon(lon: number): boolean {
   return Number.isFinite(lon) && lon >= -180 && lon <= 180
 }
 
-function degreesFromDms(value: number, sign: 1 | -1): number {
-  return value * sign
+const COORD_TOKEN_RE =
+  /([+-]?\d+(?:[.,]\d+)?)\s*(?:°\s*)?(?:\s*(\d+(?:[.,]\d+)?)\s*['′’]\s*)?(?:\s*(\d+(?:[.,]\d+)?)\s*(?:["″”]))?\s*([NSEWnsew])?/g
+
+function coordValue(match: RegExpMatchArray): number {
+  const deg = Number(match[1].replace(',', '.'))
+  const min = match[2] ? Number(match[2].replace(',', '.')) : 0
+  const sec = match[3] ? Number(match[3].replace(',', '.')) : 0
+  return deg + min / 60 + sec / 3600
 }
 
-function parseDmsPart(tokens: string[]): { value: number; consumed: number } | null {
-  if (tokens.length < 3) return null
-  const deg = Number(tokens[0])
-  const min = Number(tokens[1])
-  const secText = tokens[2]
-  if (!Number.isFinite(deg) || !Number.isFinite(min)) return null
-  if (/^\d/.test(secText) && !/^[NSEOWnseow]/.test(secText)) {
-    const sec = Number(secText)
-    if (!Number.isFinite(sec)) return null
-    return { value: deg + min / 60 + sec / 3600, consumed: 3 }
-  }
-  return { value: deg + min / 60, consumed: 2 }
+function applyDirection(value: number, dir?: string): number {
+  if (!dir) return value
+  if (dir === 'N' || dir === 'E') return Math.abs(value)
+  if (dir === 'S' || dir === 'W') return -Math.abs(value)
+  return value
 }
 
-function parseDms(input: string): { lat: number; lon: number } | null {
-  const clean = input.trim().replace(/,/g, ' ')
-  const tokens = clean.split(/\s+/).filter(Boolean)
-  let lat: number | null = null
-  let lon: number | null = null
-  let i = 0
-  let current = 0
-  let sign: 1 | -1 = 1
+export function parseCoordinates(input: string): { lat: number; lon: number } | null {
+  const text = input.trim()
+  if (!text) return null
 
-  const axisMap = new Map<string, 'lat' | 'lon'>([
-    ['N', 'lat'], ['n', 'lat'], ['S', 'lat'], ['s', 'lat'],
-    ['E', 'lon'], ['e', 'lon'], ['W', 'lon'], ['w', 'lon'],
-  ])
+  const matches = Array.from(text.matchAll(COORD_TOKEN_RE)).filter((m) => m[1] !== undefined)
+  if (matches.length !== 2) return null
 
-  while (i < tokens.length) {
-    const token = tokens[i]
-    const axis = axisMap.get(token)
-    if (axis) {
-      const value = degreesFromDms(current, sign)
-      if (axis === 'lat') lat = value
-      else lon = value
-      current = 0
-      sign = 1
-      i++
-      continue
-    }
-    if (/^[NSns]/.test(token) && !/^\d/.test(token)) {
-      sign = token === 'S' || token === 's' ? -1 : 1
-      i++
-      continue
-    }
-    if (/^[EWew]/.test(token) && !/^\d/.test(token)) {
-      const value = degreesFromDms(current, sign)
-      if (lon === null) lon = value
-      current = 0
-      sign = 1
-      i++
-      continue
-    }
-    const remainder = tokens.slice(i)
-    const dms = parseDmsPart(remainder)
-    if (!dms) break
-    current += dms.value
-    i += dms.consumed
-    const tail = remainder[dms.consumed]
-    if (tail && axisMap.has(tail)) {
-      // handled on next iteration
-    }
+  const first = matches[0]
+  const second = matches[1]
+  const dir0 = first[4] ? first[4].toUpperCase() : undefined
+  const dir1 = second[4] ? second[4].toUpperCase() : undefined
+  const hasLatDir = dir0 === 'N' || dir0 === 'S' || dir1 === 'N' || dir1 === 'S'
+  const hasLonDir = dir0 === 'E' || dir0 === 'W' || dir1 === 'E' || dir1 === 'W'
+
+  let lat: number
+  let lon: number
+  if (hasLatDir && hasLonDir) {
+    const latMatch = dir0 === 'N' || dir0 === 'S' ? first : second
+    const lonMatch = dir0 === 'E' || dir0 === 'W' ? first : second
+    lat = applyDirection(coordValue(latMatch), latMatch[4])
+    lon = applyDirection(coordValue(lonMatch), lonMatch[4])
+  } else {
+    lat = applyDirection(coordValue(first), dir0)
+    lon = applyDirection(coordValue(second), dir1)
   }
-  if (lat === null || lon === null) return null
+
   if (!isValidLat(lat) || !isValidLon(lon)) return null
   return { lat, lon }
 }
 
 export function parseWgs84(input: string): { lat: number; lon: number } | null {
-  const trimmed = input.trim()
-  if (!trimmed) return null
-
-  const numeric = trimmed.split(/[\s,;]+/).map(Number).filter(Number.isFinite)
-  if (numeric.length >= 2 && numeric.every((n) => Math.abs(n) <= 180)) {
-    const [a, b] = numeric
-    if (isValidLat(a) && isValidLon(b)) return { lat: a, lon: b }
-    if (isValidLat(b) && isValidLon(a)) return { lat: b, lon: a }
-  }
-
-  const dms = parseDms(trimmed)
-  if (dms) return dms
-
-  return null
+  return parseCoordinates(input)
 }
 
 export interface ReverseGeocodeResult {

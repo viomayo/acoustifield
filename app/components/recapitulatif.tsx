@@ -12,6 +12,7 @@ import {
   FileJson,
   FileSpreadsheet,
   FolderOpen,
+  Pencil,
   Trash2,
   Upload,
   X,
@@ -169,6 +170,13 @@ export default function Recapitulatif() {
     }
     saveDraft(draftFromFiche(copy, photos.length))
     showToast('Fiche dupliquée — prête à être modifiée', 'success')
+    router.push('/')
+  }
+
+  async function handleEdit(fiche: FicheData) {
+    const photos = await getPhotosByFiche(ownerId, fiche.id)
+    saveDraft(draftFromFiche(fiche, photos.length))
+    showToast('Fiche prête à être modifiée', 'success')
     router.push('/')
   }
 
@@ -358,6 +366,7 @@ export default function Recapitulatif() {
               key={row.fiche.id}
               row={row}
               onOpen={() => openDetails(row)}
+              onEdit={() => void handleEdit(row.fiche)}
               onDuplicate={() => void handleDuplicate(row.fiche)}
               onDelete={() => setConfirmDelete(row.fiche)}
             />
@@ -415,11 +424,13 @@ export default function Recapitulatif() {
 function FicheCard({
   row,
   onOpen,
+  onEdit,
   onDuplicate,
   onDelete,
 }: {
   row: LocalRow
   onOpen: () => void
+  onEdit: () => void
   onDuplicate: () => void
   onDelete: () => void
 }) {
@@ -478,6 +489,14 @@ function FicheCard({
           title="Voir le détail"
         >
           <Eye size={15} />
+        </button>
+        <button
+          type="button"
+          onClick={onEdit}
+          className="p-2 rounded-lg text-foreground/45 hover:text-foreground hover:bg-foreground/5 transition-colors cursor-pointer"
+          title="Modifier"
+        >
+          <Pencil size={15} />
         </button>
         <button
           type="button"
@@ -579,7 +598,6 @@ function DetailsModal({
     ['Hauteur de pose', fiche.hauteurPoseM != null ? `${fiche.hauteurPoseM} m` : '—'],
     ['Orientation', fiche.orientationDeg != null ? `${fiche.orientationDeg}°` : '—'],
     ['Température', fiche.temperatureC != null ? `${fiche.temperatureC} °C` : '—'],
-    ['Type de nuit', fiche.typeNuit || '—'],
     ['Conditions', fiche.conditionsMeteo.join(', ') || '—'],
     ['Commentaires', fiche.commentaires || '—'],
   ]

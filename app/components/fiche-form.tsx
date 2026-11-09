@@ -12,9 +12,10 @@ import {
   ECLAIRAGES,
   GESTIONS,
   HABITATS,
+  LUMINOSITES,
   OUVER_TURES_PAYSAGE,
   SUR_ELEMENTS,
-  TYPES_NUIT,
+  VENTS,
   clearDraft,
   clearLastProject,
   computeNbNuitsEcoute,
@@ -53,6 +54,7 @@ function Section({ title, description, children }: { title: string; description?
 
 function TextInput({
   label,
+  labelHint,
   value,
   onChange,
   type = 'text',
@@ -65,6 +67,7 @@ function TextInput({
   readOnly,
 }: {
   label: string
+  labelHint?: string
   value: string
   onChange: (value: string) => void
   type?: string
@@ -78,7 +81,10 @@ function TextInput({
 }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-xs font-medium text-foreground">{label}</span>
+      <span className="text-xs font-medium text-foreground">
+        {label}
+        {labelHint && <span className="ml-1 font-normal italic text-foreground/50">{labelHint}</span>}
+      </span>
       <input
         type={type}
         value={value}
@@ -133,6 +139,7 @@ function ChipGroup({
   onChange,
   multi = false,
   gridClassName,
+  hint,
 }: {
   label: string
   options: readonly string[]
@@ -140,6 +147,7 @@ function ChipGroup({
   onChange: (next: string | string[]) => void
   multi?: boolean
   gridClassName?: string
+  hint?: string
 }) {
   return (
     <div className="flex flex-col gap-1.5">
@@ -176,6 +184,7 @@ function ChipGroup({
           )
         })}
       </div>
+      {hint && <span className="text-xs text-foreground/50">{hint}</span>}
     </div>
   )
 }
@@ -187,7 +196,14 @@ export default function FicheForm() {
   const [fiche, setFiche] = useState<FicheData>(() => {
     const base = defaultFiche(ownerId || 'preview')
     if (initialDraft) {
-      return { ...base, ...initialDraft, createdAt: base.createdAt, updatedAt: base.updatedAt }
+      return {
+        ...base,
+        ...initialDraft,
+        createdAt: initialDraft.createdAt ?? base.createdAt,
+        updatedAt: base.updatedAt,
+        syncedAt: initialDraft.syncedAt ?? null,
+        lastSyncedRemoteRevision: initialDraft.lastSyncedRemoteRevision ?? null,
+      }
     }
     base.projet = getLastProject()
     return base
@@ -195,6 +211,13 @@ export default function FicheForm() {
   const [photoCount, setPhotoCount] = useState<number>(() => initialDraft?.photoCount ?? 0)
   const [showMap, setShowMap] = useState(false)
   const [showResetConfirm, setShowResetConfirm] = useState(false)
+  const [meteoOpen, setMeteoOpen] = useState<boolean>(() =>
+    Boolean(
+      initialDraft &&
+        (initialDraft.temperatureC != null ||
+          (Array.isArray(initialDraft.conditionsMeteo) && initialDraft.conditionsMeteo.length > 0)),
+    ),
+  )
   const [reverseGeocoding, setReverseGeocoding] = useState(false)
   const [savedOnce, setSavedOnce] = useState(false)
   const [latText, setLatText] = useState<string>(() => (fiche.lat == null ? '' : String(fiche.lat)))
@@ -272,6 +295,7 @@ export default function FicheForm() {
     setLonText('')
     setHauteurText('')
     setTemperatureText('')
+    setMeteoOpen(false)
     reverseGeocodeRequested.current = false
     showToast('Fiche enregistrée en local — pense à synchroniser', 'success')
   }
@@ -286,6 +310,7 @@ export default function FicheForm() {
     setLonText('')
     setHauteurText('')
     setTemperatureText('')
+    setMeteoOpen(false)
     reverseGeocodeRequested.current = false
     showToast('Formulaire réinitialisé', 'info')
   }
@@ -298,6 +323,15 @@ export default function FicheForm() {
     if (key === 'hauteurPoseM') setHauteurText(raw)
     else setTemperatureText(raw)
     update(key, parseNumber(raw))
+  }
+
+  const luminosite = fiche.conditionsMeteo.find((condition) => (LUMINOSITES as readonly string[]).includes(condition)) ?? ''
+  const vent = fiche.conditionsMeteo.find((condition) => (VENTS as readonly string[]).includes(condition)) ?? ''
+
+  function handleSingleConditionChange(options: readonly string[], next: string | string[]) {
+    const value = Array.isArray(next) ? next[0] ?? '' : next
+    const others = fiche.conditionsMeteo.filter((condition) => !(options as readonly string[]).includes(condition))
+    update('conditionsMeteo', value ? [...others, value] : others)
   }
 
   function handleMyPosition() {
@@ -347,8 +381,8 @@ export default function FicheForm() {
           ))}
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <TextInput label="N° du boîtier" value={fiche.boitierNum} onChange={(v) => update('boitierNum', v)} />
-          <TextInput label="N° du micro" value={fiche.microNum} onChange={(v) => update('microNum', v)} />
+          <TextInput label="N° du boîtier" labelHint="(si applicable)" value={fiche.boitierNum} onChange={(v) => update('boitierNum', v)} />
+          <TextInput label="N° du micro" labelHint="(si applicable)" value={fiche.microNum} onChange={(v) => update('microNum', v)} />
         </div>
         <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
           <input
@@ -455,16 +489,36 @@ export default function FicheForm() {
         <CompassField value={fiche.orientationDeg} onChange={(v) => update('orientationDeg', v)} />
       </Section>
 
-      <Section title="Météo">
-        <TextInput
-          label="Température en début de nuit (au coucher du soleil, °C)"
-          type="text"
-          inputMode="decimal"
-          value={temperatureText}
-          onChange={(v) => handleDecimalChange('temperatureC', v)}
-        />
-        <ChipGroup label="Type de nuit" options={TYPES_NUIT} value={fiche.typeNuit} onChange={(v) => update('typeNuit', v as string)} />
-        <ChipGroup label="Conditions" options={CONDITIONS_METEO} value={fiche.conditionsMeteo} multi onChange={(v) => update('conditionsMeteo', v as string[])} gridClassName="grid grid-cols-2 sm:grid-cols-5 gap-1.5" />
+      <Section title="Météo" description="Section facultative.">
+        {meteoOpen ? (
+          <>
+            <TextInput
+              label="Température en début de nuit (au coucher du soleil, °C)"
+              type="text"
+              inputMode="decimal"
+              value={temperatureText}
+              onChange={(v) => handleDecimalChange('temperatureC', v)}
+            />
+            <ChipGroup label="Conditions" options={CONDITIONS_METEO} value={fiche.conditionsMeteo} multi onChange={(v) => update('conditionsMeteo', v as string[])} gridClassName="grid grid-cols-2 sm:grid-cols-3 gap-1.5" />
+            <ChipGroup label="Vent" options={VENTS} value={vent} onChange={(v) => handleSingleConditionChange(VENTS, v)} gridClassName="grid grid-cols-2 sm:grid-cols-4 gap-1.5" hint="Échelle de Beaufort : nul 0–1, léger 2–3, modéré 4–5, fort 6+" />
+            <ChipGroup label="Luminosité" options={LUMINOSITES} value={luminosite} onChange={(v) => handleSingleConditionChange(LUMINOSITES, v)} gridClassName="grid grid-cols-3 gap-1.5" />
+            <button
+              type="button"
+              onClick={() => setMeteoOpen(false)}
+              className="self-start text-xs font-medium text-foreground/60 underline underline-offset-2 hover:text-foreground transition-colors cursor-pointer"
+            >
+              Masquer la météo
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setMeteoOpen(true)}
+            className="self-start px-3 py-2 rounded-lg text-sm font-medium border border-foreground/15 text-foreground hover:bg-foreground/5 transition-colors cursor-pointer"
+          >
+            Renseigner la météo
+          </button>
+        )}
       </Section>
 
       <Section title="Photos du milieu" description="Utile pour se rappeler du contexte lors de l'analyse des enregistrements.">

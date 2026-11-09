@@ -2,7 +2,7 @@
 
 ## État livré
 
-- [fait] Fiches de pose d'enregistreurs acoustiques : sections Type d'appareil, Contexte, Caractérisation du milieu, Météo, Photos du milieu et Commentaires, avec localisation en degrés décimaux collables (répartition automatique lat/lon), commune remplie par géocodage inverse, boutons « Position GPS » et « Ma position », orientation de l'enregistreur réglable au curseur avec jauge visuelle, libellés et choix conformes au protocole d'échantillonnage (listes d'habitats, gestion, éclairage, type de nuit, conditions) et champ libre pour chaque choix « Autre » (support, habitat). Jour et heure de pose obligatoires, ouverture du milieu et description de l'habitat principal obligatoires. La température, la hauteur de pose et la localisation acceptent la virgule comme séparateur décimal (le point reste accepté).
+- [fait] Fiches de pose d'enregistreurs acoustiques : sections Type d'appareil, Contexte, Caractérisation du milieu, Météo facultative, Photos du milieu et Commentaires, avec localisation en degrés décimaux collables (répartition automatique lat/lon), commune remplie par géocodage inverse, boutons « Position GPS » et « Ma position », orientation de l'enregistreur réglable au curseur avec jauge visuelle, libellés et choix conformes au protocole d'échantillonnage (listes d'habitats, gestion, éclairage, conditions, vent, luminosité) et champ libre pour chaque choix « Autre » (support, habitat). Jour et heure de pose obligatoires, ouverture du milieu et description de l'habitat principal obligatoires. La température, la hauteur de pose et la localisation acceptent la virgule comme séparateur décimal (le point reste accepté).
 - [fait] Brouillon auto-sauvegardé dans localStorage et persistance IndexedDB (fiches, photos, tombstones, cache superviseur, profil offline) avec isolation par utilisateur.
 - [fait] Profil d'identité offline actif persistant, remplaçable ou désactivable sans purge des données métier.
 - [fait] Provider client global distinguant identité Supabase vérifiée, profil offline, session expirée et absence d'identité, sans autorisation superviseur locale.
@@ -19,7 +19,7 @@
 - [fait] Exports JSON (UTF-8) et CSV encodé UTF-8 avec BOM (séparateur `;`, accents et caractères spéciaux lisibles, valeurs décimales à la virgule pour lat/lon, hauteur de pose et température, `user_id`/`user_name`, `nb_photos`, colonne `photos` listant les noms des fichiers liés).
 - [fait] Exports renommés « Projet - Date - Site - Opérateur », photos nommées « Projet - Date - Site - Opérateur - NN.jpg », et téléchargement depuis le récapitulatif : un tableau CSV par projet (ZIP), JSON complet ou ZIP des photos (un dossier par fiche).
 - [fait] Duplication d'une fiche ouvrant une nouvelle fiche préremplie et modifiable (champs et photos copiés) ; nom du projet conservé pour la fiche suivante après « Sauvegarder et enregistrer une nouvelle fiche », sauf réinitialisation complète.
-- [fait] Nom du projet obligatoire (validation + astérisque), opérateur prérempli au prénom+nom de la personne connectée et modifiable, commune remplie par géocodage inverse avec repli sur BigDataCloud si Nominatim échoue, orientation réglable au curseur avec jauge visuelle, et conditions météo affichées par paires sur mobile (Pleine lune/Nuit noire, Vent léger/Vent fort).
+- [fait] Nom du projet obligatoire (validation + astérisque), opérateur prérempli au prénom+nom de la personne connectée et modifiable, commune remplie par géocodage inverse avec repli sur BigDataCloud si Nominatim échoue, orientation réglable au curseur avec jauge visuelle, et météo facultative avec vent (échelle de Beaufort) et luminosité en sélection unique.
 - [fait] Bords et soulignés de l'interface passés au noir (anneaux de focus, onglets de la barre de navigation, survols, bandeau superviseur) ; icônes PWA régénérées avec une marge de sécurité (le motif ne touche plus les bords), version `?v=3`.
 - [fait] Profils utilisateurs contrôlés : table `profiles` préremplie au premier sign-in (nom Google), renommable localement, et noms affichés dans la vue superviseur.
 - [fait] Tests unitaires/intégration, scénarios Playwright et CI (qualité, couverture, build, audit, E2E, Supabase).
@@ -27,6 +27,10 @@
 - [fait] Footer d'application mentionnant « Développé par viomayo » avec lien vers https://github.com/viomayo.
 - [fait] Mise à jour vers Next.js 16.3 et audit production sans vulnérabilité connue.
 - [fait] Corrections mobile PWA : viewport meta `width=device-width, initial-scale=1` pour le rendu correct sur iOS/Android, sélecteur de position GPS sans dépendance Leaflet (champs lat/lon + collage WGS84 + géolocalisation), orientation simplifiée au curseur sans dépendance `DeviceOrientationEvent`.
+- [fait] Édition d'une fiche existante depuis le récapitulatif (bouton crayon) : formulaire prérempli avec conservation de l'identifiant, de `createdAt`, de `syncedAt` et de `lastSyncedRemoteRevision`, photos incluses.
+- [fait] Nombre de nuits d'écoute recalculé en jours calendaires entre la pose et la recherche, indépendamment de l'heure.
+- [fait] Parsing des coordonnées centralisé dans `lib/geo.ts` : décimales à virgule ou point, séparateurs virgule/point-virgule/espace, degrés-minutes-secondes et directions cardinales ; `parseCoordinates` et `parseWgs84` partagent la même implémentation.
+- [fait] Champs « N° du boîtier » et « N° du micro » annotés « (si applicable) ».
 
 ## Déploiement
 
@@ -35,6 +39,7 @@
 - [fait] Client OAuth Google mis en conformité : l'URI de redirection `https://kiknpogoreznmgdtpkoh.supabase.co/auth/v1/callback` est enregistré dans la Google Cloud Console et le secret renseigné dans Supabase (Auth > Providers > Google).
 - [fait] Login Google réel concluant (fait le 14 août 2026) ; en cas de `redirect_uri_mismatch` ou d'échec d'échange de code, relire `/auth/auth-code-error` et purger le localStorage/cookies du site.
 - [fait] Migrations `202608150000_habitat_autre.sql` et `202608150001_orientation_deg.sql` appliquées manuellement au Supabase distant (fait le 15 août 2026), dans cet ordre, et vérifiées (colonnes présentes dans le Table Editor).
+- [à faire] Appliquer la migration `202608190000_pose_recherche.sql` au projet Supabase distant (colonnes `date_heure_pose`, `date_heure_recherche`, `nb_nuits_ecoute` et RPC `sync_fiche_snapshot` mis à jour) avant toute synchronisation de production.
 - [fait] Dépôt GitHub `viomayo/acoustifield` créé (fait le 15 août 2026) et CI GitHub Actions active sur chaque push.
 - [fait] Déploiement Vercel en production : [https://acoustifield.vercel.app](https://acoustifield.vercel.app) (fait le 15 août 2026), avec `NEXT_PUBLIC_SUPABASE_URL` et `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` renseignées.
 - [fait] « Site URL » et « Redirect URLs » de Supabase (Auth > URL Configuration) configurées vers `https://acoustifield.vercel.app` (fait le 15 août 2026).

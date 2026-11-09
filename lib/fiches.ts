@@ -71,6 +71,9 @@ export interface FicheDraft {
   conditionsMeteo: string[]
   commentaires: string
   photoCount: number
+  createdAt: string
+  syncedAt: string | null
+  lastSyncedRemoteRevision: number | null
 }
 
 export const APPAREILS = [
@@ -141,23 +144,28 @@ export const ECLAIRAGES = [
   'Non',
 ] as const
 
-export const TYPES_NUIT = [
-  'Calme',
-  'Pluvieuse',
-  'Orageuse',
-] as const
-
 export const CONDITIONS_METEO = [
   'Dégagé',
-  'Couvert',
+  'Partiellement nuageux',
   'Nuageux',
   'Brouillard',
   'Bruine',
   'Pluie légère',
-  'Pleine lune',
-  'Nuit noire',
+  'Pluie forte',
+  'Orage',
+] as const
+
+export const VENTS = [
+  'Vent nul',
   'Vent léger',
+  'Vent modéré',
   'Vent fort',
+] as const
+
+export const LUMINOSITES = [
+  'Pleine lune',
+  'Croissant de lune',
+  'Nuit noire',
 ] as const
 
 export function computeNbNuitsEcoute(pose: string, recherche: string): number | null {
@@ -165,9 +173,10 @@ export function computeNbNuitsEcoute(pose: string, recherche: string): number | 
   const d1 = new Date(pose)
   const d2 = new Date(recherche)
   if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return null
-  const ms = d2.getTime() - d1.getTime()
-  if (ms <= 0) return 0
-  return Math.ceil(ms / (1000 * 60 * 60 * 24))
+  const start = Date.UTC(d1.getFullYear(), d1.getMonth(), d1.getDate())
+  const end = Date.UTC(d2.getFullYear(), d2.getMonth(), d2.getDate())
+  const days = Math.round((end - start) / (1000 * 60 * 60 * 24))
+  return days > 0 ? days : 0
 }
 
 export function defaultFiche(ownerId: string): FicheData {
@@ -244,6 +253,9 @@ export function draftFromFiche(fiche: FicheData, photoCount: number): FicheDraft
     conditionsMeteo: fiche.conditionsMeteo,
     commentaires: fiche.commentaires,
     photoCount,
+    createdAt: fiche.createdAt,
+    syncedAt: fiche.syncedAt,
+    lastSyncedRemoteRevision: fiche.lastSyncedRemoteRevision,
   }
 }
 
@@ -289,6 +301,9 @@ export function loadDraft(): Partial<FicheDraft> | null {
       conditionsMeteo: Array.isArray(parsed.conditionsMeteo) ? (parsed.conditionsMeteo as unknown[]).filter(isString) : [],
       commentaires: isString(parsed.commentaires) ? parsed.commentaires : '',
       photoCount: typeof parsed.photoCount === 'number' ? parsed.photoCount : 0,
+      ...(isString(parsed.createdAt) ? { createdAt: parsed.createdAt } : {}),
+      ...(isString(parsed.syncedAt) ? { syncedAt: parsed.syncedAt } : {}),
+      ...(typeof parsed.lastSyncedRemoteRevision === 'number' ? { lastSyncedRemoteRevision: parsed.lastSyncedRemoteRevision } : {}),
     }
   } catch {
     return null
@@ -365,48 +380,4 @@ export function ficheIsEmpty(draft: Partial<FicheDraft>): boolean {
   )
 }
 
-const COORD_TOKEN_RE =
-  /([+-]?\d+(?:[.,]\d+)?)\s*(?:°\s*)?(?:\s*(\d+(?:[.,]\d+)?)\s*['′’]\s*)?(?:\s*(\d+(?:[.,]\d+)?)\s*(?:["″”]))?\s*([NSEWnsew])?/g
-
-function coordValue(match: RegExpMatchArray): number {
-  const deg = Number(match[1].replace(',', '.'))
-  const min = match[2] ? Number(match[2].replace(',', '.')) : 0
-  const sec = match[3] ? Number(match[3].replace(',', '.')) : 0
-  return deg + min / 60 + sec / 3600
-}
-
-function applyDirection(value: number, dir?: string): number {
-  if (!dir) return value
-  if (dir === 'N' || dir === 'E') return Math.abs(value)
-  if (dir === 'S' || dir === 'W') return -Math.abs(value)
-  return value
-}
-
-export function parseCoordinates(input: string): { lat: number; lon: number } | null {
-  const text = input.trim()
-  if (!text) return null
-
-  const matches = Array.from(text.matchAll(COORD_TOKEN_RE)).filter((m) => m[1] !== undefined)
-  if (matches.length !== 2) return null
-
-  const first = matches[0]
-  const second = matches[1]
-  const dir0 = first[4] ? first[4].toUpperCase() : undefined
-  const dir1 = second[4] ? second[4].toUpperCase() : undefined
-  const hasLatDir = dir0 === 'N' || dir0 === 'S' || dir1 === 'N' || dir1 === 'S'
-  const hasLonDir = dir0 === 'E' || dir0 === 'W' || dir1 === 'E' || dir1 === 'W'
-
-  let lat: number
-  let lon: number
-  if (hasLatDir && hasLonDir) {
-    const latMatch = dir0 === 'N' || dir0 === 'S' ? first : second
-    const lonMatch = dir0 === 'E' || dir0 === 'W' ? first : second
-    lat = applyDirection(coordValue(latMatch), latMatch[4])
-    lon = applyDirection(coordValue(lonMatch), lonMatch[4])
-  } else {
-    lat = applyDirection(coordValue(first), dir0)
-    lon = applyDirection(coordValue(second), dir1)
-  }
-
-  return { lat, lon }
-}
+export { parseCoordinates } from './geo'

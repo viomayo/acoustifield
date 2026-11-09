@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { clearLastProject, draftFromFiche, getLastProject, loadDraft, parseCoordinates, saveDraft, saveLastProject } from './fiches'
+import { clearLastProject, computeNbNuitsEcoute, draftFromFiche, getLastProject, loadDraft, parseCoordinates, saveDraft, saveLastProject } from './fiches'
+import { parseWgs84 } from './geo'
 import { makeFiche } from './test-fixtures'
 
 describe('parseCoordinates', () => {
@@ -9,6 +10,11 @@ describe('parseCoordinates', () => {
 
   it('parses decimal coordinates with a French comma separator', () => {
     expect(parseCoordinates('50,72521 4,53803')).toEqual({ lat: 50.72521, lon: 4.53803 })
+  })
+
+  it('parses decimal coordinates with a semicolon separator and French decimals', () => {
+    expect(parseCoordinates('49,709328 ; 5,411535')).toEqual({ lat: 49.709328, lon: 5.411535 })
+    expect(parseWgs84('49,709328 ; 5,411535')).toEqual({ lat: 49.709328, lon: 5.411535 })
   })
 
   it('parses decimal coordinates with degree signs and cardinal directions', () => {
@@ -41,6 +47,27 @@ describe('parseCoordinates', () => {
     expect(parseCoordinates('abc')).toBeNull()
     expect(parseCoordinates('50.72521')).toBeNull()
     expect(parseCoordinates('1 2 3')).toBeNull()
+  })
+})
+
+describe('computeNbNuitsEcoute', () => {
+  it('counts one night per calendar day between pose and retrieval', () => {
+    expect(computeNbNuitsEcoute('2026-08-23T20:00', '2026-08-28T08:00')).toBe(5)
+  })
+
+  it('ignores the time of day', () => {
+    expect(computeNbNuitsEcoute('2026-08-23T08:00', '2026-08-28T20:00')).toBe(5)
+  })
+
+  it('returns zero for the same day or a retrieval before the pose', () => {
+    expect(computeNbNuitsEcoute('2026-08-23T20:00', '2026-08-23T23:00')).toBe(0)
+    expect(computeNbNuitsEcoute('2026-08-28T08:00', '2026-08-23T20:00')).toBe(0)
+  })
+
+  it('returns null when a date is missing or invalid', () => {
+    expect(computeNbNuitsEcoute('', '2026-08-28T08:00')).toBeNull()
+    expect(computeNbNuitsEcoute('2026-08-23T20:00', '')).toBeNull()
+    expect(computeNbNuitsEcoute('invalid', '2026-08-28T08:00')).toBeNull()
   })
 })
 
@@ -82,5 +109,14 @@ describe('draft', () => {
     const draft = loadDraft()
     expect(draft?.siteNom).toBe('Ancien site')
     expect(draft?.id).toBeUndefined()
+  })
+
+  it('preserves sync metadata when editing an existing fiche', () => {
+    const fiche = makeFiche({ syncedAt: '2026-08-15T08:00:00.000Z', lastSyncedRemoteRevision: 4 })
+    saveDraft(draftFromFiche(fiche, 2))
+    const draft = loadDraft()
+    expect(draft?.createdAt).toBe(fiche.createdAt)
+    expect(draft?.syncedAt).toBe(fiche.syncedAt)
+    expect(draft?.lastSyncedRemoteRevision).toBe(4)
   })
 })
