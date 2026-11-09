@@ -226,7 +226,8 @@ export default function FicheForm() {
   const [lonText, setLonText] = useState<string>(() => (fiche.lon == null ? '' : String(fiche.lon)))
   const [hauteurText, setHauteurText] = useState<string>(() => (fiche.hauteurPoseM == null ? '' : String(fiche.hauteurPoseM)))
   const [temperatureText, setTemperatureText] = useState<string>(() => (fiche.temperatureC == null ? '' : String(fiche.temperatureC)))
-  const reverseGeocodeRequested = useRef(false)
+  const lastGeocoded = useRef<string | null>(null)
+  const [geocodeAttempt, setGeocodeAttempt] = useState(0)
 
   useEffect(() => {
     if (!ownerId || fiche.ownerId === 'preview') return
@@ -259,18 +260,42 @@ export default function FicheForm() {
   const hasCoordinates = fiche.lat != null && fiche.lon != null
 
   useEffect(() => {
+    function handleOnline() {
+      lastGeocoded.current = null
+      setGeocodeAttempt((value) => value + 1)
+    }
+    window.addEventListener('online', handleOnline)
+    return () => window.removeEventListener('online', handleOnline)
+  }, [])
+
+  useEffect(() => {
     if (!hasCoordinates) return
-    if (reverseGeocodeRequested.current) return
-    reverseGeocodeRequested.current = true
+    const key = `${fiche.lat},${fiche.lon}`
+    if (lastGeocoded.current === key) return
+    lastGeocoded.current = key
+    let cancelled = false
     setReverseGeocoding(true)
     void reverseGeocode(fiche.lat!, fiche.lon!)
       .then((result) => {
-        if (result) update('commune', result.commune)
+        if (cancelled) return
+        if (result?.commune) {
+          update('commune', result.commune)
+        } else {
+          lastGeocoded.current = null
+        }
       })
-      .catch(() => undefined)
-      .finally(() => setReverseGeocoding(false))
+      .catch(() => {
+        if (!cancelled) lastGeocoded.current = null
+      })
+      .finally(() => {
+        if (!cancelled) setReverseGeocoding(false)
+      })
+    return () => {
+      cancelled = true
+      lastGeocoded.current = null
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fiche.lat, fiche.lon])
+  }, [fiche.lat, fiche.lon, geocodeAttempt])
 
   async function handleSave() {
     if (!ownerId) return
@@ -297,7 +322,8 @@ export default function FicheForm() {
     setHauteurText('')
     setTemperatureText('')
     setMeteoOpen(false)
-    reverseGeocodeRequested.current = false
+    setReverseGeocoding(false)
+    lastGeocoded.current = null
     showToast('Fiche enregistrée en local — pense à synchroniser', 'success')
   }
 
@@ -312,7 +338,8 @@ export default function FicheForm() {
     setHauteurText('')
     setTemperatureText('')
     setMeteoOpen(false)
-    reverseGeocodeRequested.current = false
+    setReverseGeocoding(false)
+    lastGeocoded.current = null
     showToast('Formulaire réinitialisé', 'info')
   }
 

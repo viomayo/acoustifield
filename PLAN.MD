@@ -31,6 +31,8 @@
 - [fait] Nombre de nuits d'écoute recalculé en jours calendaires entre la pose et la recherche, indépendamment de l'heure.
 - [fait] Parsing des coordonnées centralisé dans `lib/geo.ts` : décimales à virgule ou point, séparateurs virgule/point-virgule/espace, degrés-minutes-secondes et directions cardinales ; `parseCoordinates` et `parseWgs84` partagent la même implémentation.
 - [fait] Champs « N° du boîtier » et « N° du micro » annotés « (si applicable) ».
+- [fait] Liste de gestion complétée avec « Prairie - site pâturé (animaux NON présents) ».
+- [fait] Commune auto-fiabilisée : repli sur BigDataCloud dès que Nominatim ne fournit pas de commune, prise en charge des hameaux, nouvelle tentative à chaque changement de coordonnées et au retour du réseau, et champ débloqué après un enregistrement ou une réinitialisation pendant une requête.
 
 ## Déploiement
 

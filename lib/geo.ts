@@ -82,7 +82,7 @@ async function reverseGeocodeNominatim(lat: number, lon: number): Promise<Revers
   if (!response.ok) return null
   const json = (await response.json()) as { address?: Record<string, string>; display_name?: string }
   const address = json.address ?? {}
-  const commune = address.city || address.town || address.village || address.municipality || address.county || ''
+  const commune = address.city || address.town || address.village || address.hamlet || address.municipality || address.county || ''
   if (!commune && !json.display_name) return null
   return { commune, displayName: json.display_name ?? '' }
 }
@@ -101,9 +101,18 @@ async function reverseGeocodeBigDataCloud(lat: number, lon: number): Promise<Rev
 }
 
 export async function reverseGeocode(lat: number, lon: number): Promise<ReverseGeocodeResult | null> {
+  let nominatim: ReverseGeocodeResult | null = null
   try {
-    return (await reverseGeocodeNominatim(lat, lon)) ?? (await reverseGeocodeBigDataCloud(lat, lon))
+    nominatim = await reverseGeocodeNominatim(lat, lon)
   } catch {
-    return null
+    nominatim = null
+  }
+  if (nominatim?.commune) return nominatim
+  try {
+    const bigDataCloud = await reverseGeocodeBigDataCloud(lat, lon)
+    if (bigDataCloud?.commune) return bigDataCloud
+    return nominatim ?? bigDataCloud
+  } catch {
+    return nominatim
   }
 }

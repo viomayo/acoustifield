@@ -135,6 +135,7 @@ export const GESTIONS = [
   'Forêt - peuplement avec gros bois ( > 50 cm diam)',
   'Forêt - peuplement jeune ( < 50 cm diam)',
   'Prairie - site pâturé (avec animaux présents)',
+  'Prairie - site pâturé (animaux NON présents)',
   'Prairie - site fauché (récemment)',
   'Prairie - site non fauché',
 ] as const
