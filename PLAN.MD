@@ -25,7 +25,7 @@
 - [fait] Tests unitaires/intégration, scénarios Playwright et CI (qualité, couverture, build, audit, E2E, Supabase).
 - [fait] Échange PKCE du code OAuth déplacé vers la route serveur `/api/auth/exchange`, stockage Supabase verrouillé sur la clé `acoustifield-auth`, et page `/auth/auth-code-error` affichant l'erreur exacte renvoyée par Supabase.
 - [fait] Footer d'application mentionnant « Développé par viomayo » avec lien vers https://github.com/viomayo.
-- [fait] Mise à jour vers Next.js 16.3 et audit production sans vulnérabilité connue.
+- [fait] Mise à jour vers Next.js 16.4.5, override `zod` 4.6.7 et audit production sans vulnérabilité haute ou critique (5 avis modérés résiduels via `glob`/`minimatch` de Serwist, non bloquants pour la CI).
 - [fait] Corrections mobile PWA : viewport meta `width=device-width, initial-scale=1` pour le rendu correct sur iOS/Android, sélecteur de position GPS sans dépendance Leaflet (champs lat/lon + collage WGS84 + géolocalisation), orientation simplifiée au curseur sans dépendance `DeviceOrientationEvent`.
 - [fait] Édition d'une fiche existante depuis le récapitulatif (bouton crayon) : formulaire prérempli avec conservation de l'identifiant, de `createdAt`, de `syncedAt` et de `lastSyncedRemoteRevision`, photos incluses.
 - [fait] Nombre de nuits d'écoute recalculé en jours calendaires entre la pose et la recherche, indépendamment de l'heure.
