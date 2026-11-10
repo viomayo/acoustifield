@@ -19,6 +19,7 @@ import {
   type RemoteFicheData,
   type RemotePhotoRef,
 } from '@/lib/idb'
+import type { FicheMetadata } from '@/lib/fiches'
 
 const CONFLICTS_KEY = 'acoustifield-conflicts'
 export const SYNC_STATE_EVENT = 'acoustifield-sync-state'
@@ -71,6 +72,23 @@ export function ficheLabel(fiche: FicheData): string {
   return [date, fiche.appareilType, site].filter(Boolean).join(' — ') || 'Fiche sans titre'
 }
 
+export function buildMetadataSnapshot(metadata: FicheMetadata): Record<string, unknown> {
+  return {
+    programme_enregistrement: metadata.programmeEnregistrement,
+    taux_echantillonnage_khz: metadata.tauxEchantillonnageKhz,
+    freq_declenchement_min_khz: metadata.freqDeclenchementMinKhz,
+    freq_declenchement_max_khz: metadata.freqDeclenchementMaxKhz,
+    duree_inter_puls_s: metadata.dureeInterPulsS,
+    gain_db: metadata.gainDb,
+    duree_max_sequence_s: metadata.dureeMaxSequenceS,
+    parametre_filtration: metadata.parametreFiltration,
+    moulinette: metadata.moulinette,
+    moulinette_autre: metadata.moulinetteAutre,
+    destin_bruits: metadata.destinBruits,
+    destin_bruits_autre: metadata.destinBruitsAutre,
+  }
+}
+
 export async function buildLocalSnapshot(fiche: FicheData, photos: PhotoData[]): Promise<FicheSnapshot> {
   return {
     fiche: {
@@ -103,6 +121,7 @@ export async function buildLocalSnapshot(fiche: FicheData, photos: PhotoData[]):
       type_nuit: fiche.typeNuit || null,
       conditions_meteo: fiche.conditionsMeteo,
       commentaires: fiche.commentaires,
+      ...buildMetadataSnapshot(fiche),
       created_at: fiche.createdAt,
     },
     photos: photos
@@ -147,6 +166,18 @@ export function mapFicheRow(ownerId: string, row: Record<string, unknown>): Fich
     typeNuit: (row.type_nuit as string) ?? '',
     conditionsMeteo: Array.isArray(row.conditions_meteo) ? (row.conditions_meteo as string[]) : [],
     commentaires: (row.commentaires as string) ?? '',
+    programmeEnregistrement: Array.isArray(row.programme_enregistrement) ? (row.programme_enregistrement as string[]) : [],
+    tauxEchantillonnageKhz: typeof row.taux_echantillonnage_khz === 'number' ? row.taux_echantillonnage_khz : null,
+    freqDeclenchementMinKhz: typeof row.freq_declenchement_min_khz === 'number' ? row.freq_declenchement_min_khz : null,
+    freqDeclenchementMaxKhz: typeof row.freq_declenchement_max_khz === 'number' ? row.freq_declenchement_max_khz : null,
+    dureeInterPulsS: typeof row.duree_inter_puls_s === 'number' ? row.duree_inter_puls_s : null,
+    gainDb: typeof row.gain_db === 'number' ? row.gain_db : null,
+    dureeMaxSequenceS: typeof row.duree_max_sequence_s === 'number' ? row.duree_max_sequence_s : null,
+    parametreFiltration: (row.parametre_filtration as string) ?? '',
+    moulinette: (row.moulinette as string) ?? '',
+    moulinetteAutre: (row.moulinette_autre as string) ?? '',
+    destinBruits: (row.destin_bruits as string) ?? '',
+    destinBruitsAutre: (row.destin_bruits_autre as string) ?? '',
     createdAt: (row.created_at as string) ?? new Date().toISOString(),
     updatedAt: (row.updated_at as string) ?? new Date().toISOString(),
     syncedAt: new Date().toISOString(),
@@ -179,6 +210,21 @@ async function fetchRemoteFicheRows(
   return { row: row as Record<string, unknown>, photos }
 }
 
+function metadataConflictValue(fiche: FicheData) {
+  return {
+    programme: fiche.programmeEnregistrement,
+    tauxKhz: fiche.tauxEchantillonnageKhz,
+    freqMin: fiche.freqDeclenchementMinKhz,
+    freqMax: fiche.freqDeclenchementMaxKhz,
+    interPuls: fiche.dureeInterPulsS,
+    gain: fiche.gainDb,
+    seqMax: fiche.dureeMaxSequenceS,
+    filtration: fiche.parametreFiltration,
+    moulinette: [fiche.moulinette, fiche.moulinetteAutre].filter(Boolean),
+    bruits: [fiche.destinBruits, fiche.destinBruitsAutre].filter(Boolean),
+  }
+}
+
 export async function buildSyncConflict(local: FicheData, remote: FicheData): Promise<SyncConflict> {
   const pairs: Array<[string, unknown, unknown]> = [
     ['Appareil', { appareil: local.appareilType, boitier: local.boitierNum, micro: local.microNum, sd: local.carteSdPleine }, { appareil: remote.appareilType, boitier: remote.boitierNum, micro: remote.microNum, sd: remote.carteSdPleine }],
@@ -187,6 +233,7 @@ export async function buildSyncConflict(local: FicheData, remote: FicheData): Pr
     ['Milieu', { sur: local.surElement, autre: local.surElementAutre, ouverture: local.ouverturePaysage, habitat: local.habitatPrincipal, secondaire: local.habitatSecondaire, habitatAutre: local.habitatPrincipalAutre, secondaireAutre: local.habitatSecondaireAutre, gestion: local.gestion, eclairage: local.eclairage, hauteur: local.hauteurPoseM, orientation: local.orientationDeg }, { sur: remote.surElement, autre: remote.surElementAutre, ouverture: remote.ouverturePaysage, habitat: remote.habitatPrincipal, secondaire: remote.habitatSecondaire, habitatAutre: remote.habitatPrincipalAutre, secondaireAutre: remote.habitatSecondaireAutre, gestion: remote.gestion, eclairage: remote.eclairage, hauteur: remote.hauteurPoseM, orientation: remote.orientationDeg }],
     ['Météo', { temp: local.temperatureC, type: local.typeNuit, conditions: local.conditionsMeteo }, { temp: remote.temperatureC, type: remote.typeNuit, conditions: remote.conditionsMeteo }],
     ['Commentaires', local.commentaires, remote.commentaires],
+    ['Métadonnées', metadataConflictValue(local), metadataConflictValue(remote)],
   ]
   const fields: SyncConflict['fields'] = []
   for (const [field, localValue, remoteValue] of pairs) {
@@ -473,4 +520,16 @@ export async function getSignedPhotoUrl(storagePath: string, expiresIn = 3600): 
 
 export async function fetchRemoteFichesCache(cachedBy: string): Promise<RemoteFicheData[]> {
   return getRemoteFiches(cachedBy)
+}
+
+export async function updateRemoteFicheMetadata(ficheId: string, metadata: FicheMetadata): Promise<number> {
+  const supabase = createClient()
+  const { data, error } = await supabase.rpc('update_fiche_metadata', {
+    p_fiche_id: ficheId,
+    p_snapshot: buildMetadataSnapshot(metadata),
+  })
+  if (error) throw new Error(error.message)
+  const response = data as { status?: string; revision?: number } | null
+  if (response?.status !== 'ok') throw new Error('Mise à jour des métadonnées refusée par le serveur')
+  return Number(response.revision ?? 0)
 }

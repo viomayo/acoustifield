@@ -14,6 +14,7 @@ import {
   pullMyFiches,
   resolveConflict,
   syncAll,
+  updateRemoteFicheMetadata,
 } from './sync'
 import { makeFiche, makePhoto, makeTombstone, makeRemoteFiche } from '../test-fixtures'
 
@@ -71,6 +72,18 @@ function remoteRow(fiche: FicheData, revision = 1): Row {
     type_nuit: fiche.typeNuit || null,
     conditions_meteo: fiche.conditionsMeteo,
     commentaires: fiche.commentaires,
+    programme_enregistrement: fiche.programmeEnregistrement,
+    taux_echantillonnage_khz: fiche.tauxEchantillonnageKhz,
+    freq_declenchement_min_khz: fiche.freqDeclenchementMinKhz,
+    freq_declenchement_max_khz: fiche.freqDeclenchementMaxKhz,
+    duree_inter_puls_s: fiche.dureeInterPulsS,
+    gain_db: fiche.gainDb,
+    duree_max_sequence_s: fiche.dureeMaxSequenceS,
+    parametre_filtration: fiche.parametreFiltration,
+    moulinette: fiche.moulinette,
+    moulinette_autre: fiche.moulinetteAutre,
+    destin_bruits: fiche.destinBruits,
+    destin_bruits_autre: fiche.destinBruitsAutre,
     created_at: fiche.createdAt,
     updated_at: fiche.updatedAt,
     sync_revision: revision,
@@ -193,6 +206,36 @@ describe('synchronisation Supabase', () => {
     ])
   })
 
+  it('includes the metadata fields in the snapshot', async () => {
+    const fiche = makeFiche({
+      programmeEnregistrement: ['Enregistrements continus'],
+      tauxEchantillonnageKhz: 384,
+      freqDeclenchementMinKhz: 20,
+      freqDeclenchementMaxKhz: 120,
+      dureeInterPulsS: 2.5,
+      gainDb: 12,
+      dureeMaxSequenceS: 5,
+      parametreFiltration: 'FIR 8 kHz',
+      moulinette: 'Autre',
+      moulinetteAutre: 'Chirosoft',
+      destinBruits: 'Autre',
+      destinBruitsAutre: 'Archivage',
+    })
+    const snapshot = await buildLocalSnapshot(fiche, [])
+    expect(snapshot.fiche.programme_enregistrement).toEqual(['Enregistrements continus'])
+    expect(snapshot.fiche.taux_echantillonnage_khz).toBe(384)
+    expect(snapshot.fiche.freq_declenchement_min_khz).toBe(20)
+    expect(snapshot.fiche.freq_declenchement_max_khz).toBe(120)
+    expect(snapshot.fiche.duree_inter_puls_s).toBe(2.5)
+    expect(snapshot.fiche.gain_db).toBe(12)
+    expect(snapshot.fiche.duree_max_sequence_s).toBe(5)
+    expect(snapshot.fiche.parametre_filtration).toBe('FIR 8 kHz')
+    expect(snapshot.fiche.moulinette).toBe('Autre')
+    expect(snapshot.fiche.moulinette_autre).toBe('Chirosoft')
+    expect(snapshot.fiche.destin_bruits).toBe('Autre')
+    expect(snapshot.fiche.destin_bruits_autre).toBe('Archivage')
+  })
+
   it('parses a remote row into a clean local fiche', () => {
     const fiche = mapFicheRow('user-a', remoteRow(makeFiche(), 3))
     expect(fiche.ownerId).toBe('user-a')
@@ -200,6 +243,78 @@ describe('synchronisation Supabase', () => {
     expect(fiche.lastSyncedRemoteRevision).toBe(3)
     expect(fiche.conditionsMeteo).toEqual(['Pluie', 'Vent'])
     expect(fiche.syncedAt).toEqual(expect.any(String))
+  })
+
+  it('maps the metadata columns of a remote row', () => {
+    const fiche = mapFicheRow('user-a', remoteRow(makeFiche({
+      programmeEnregistrement: ['½ h avant le coucher du soleil'],
+      tauxEchantillonnageKhz: 192,
+      freqDeclenchementMinKhz: 15,
+      freqDeclenchementMaxKhz: 180,
+      dureeInterPulsS: 0.1,
+      gainDb: 0,
+      dureeMaxSequenceS: 5,
+      parametreFiltration: 'Passe-haut',
+      moulinette: 'BatDetect2',
+      moulinetteAutre: '',
+      destinBruits: 'Suppression',
+      destinBruitsAutre: '',
+    }), 2))
+    expect(fiche.programmeEnregistrement).toEqual(['½ h avant le coucher du soleil'])
+    expect(fiche.tauxEchantillonnageKhz).toBe(192)
+    expect(fiche.freqDeclenchementMinKhz).toBe(15)
+    expect(fiche.freqDeclenchementMaxKhz).toBe(180)
+    expect(fiche.dureeInterPulsS).toBe(0.1)
+    expect(fiche.gainDb).toBe(0)
+    expect(fiche.dureeMaxSequenceS).toBe(5)
+    expect(fiche.parametreFiltration).toBe('Passe-haut')
+    expect(fiche.moulinette).toBe('BatDetect2')
+    expect(fiche.destinBruits).toBe('Suppression')
+    expect(mapFicheRow('user-a', { id: 'x' }).tauxEchantillonnageKhz).toBeNull()
+  })
+
+  it('updates remote metadata through the dedicated RPC', async () => {
+    const { client, rpc } = createFakeSupabase(new FakeStore())
+    rpc.mockResolvedValue({ data: { status: 'ok', revision: 7 }, error: null })
+    createClientMock.mockReturnValue(client)
+
+    const metadata = {
+      programmeEnregistrement: ['Du coucher au lever du soleil'],
+      tauxEchantillonnageKhz: 500,
+      freqDeclenchementMinKhz: null,
+      freqDeclenchementMaxKhz: null,
+      dureeInterPulsS: null,
+      gainDb: null,
+      dureeMaxSequenceS: null,
+      parametreFiltration: '',
+      moulinette: 'Kaleidoscope',
+      moulinetteAutre: '',
+      destinBruits: 'Parasite',
+      destinBruitsAutre: '',
+    }
+    await expect(updateRemoteFicheMetadata('fiche-1', metadata)).resolves.toBe(7)
+    expect(rpc).toHaveBeenCalledWith('update_fiche_metadata', {
+      p_fiche_id: 'fiche-1',
+      p_snapshot: expect.objectContaining({
+        programme_enregistrement: ['Du coucher au lever du soleil'],
+        taux_echantillonnage_khz: 500,
+        moulinette: 'Kaleidoscope',
+        destin_bruits: 'Parasite',
+      }),
+    })
+  })
+
+  it('rejects a refused metadata update', async () => {
+    const { client, rpc } = createFakeSupabase(new FakeStore())
+    rpc.mockResolvedValue({ data: null, error: { message: 'not supervisor' } })
+    createClientMock.mockReturnValue(client)
+
+    await expect(updateRemoteFicheMetadata('fiche-1', makeFiche())).rejects.toThrow('not supervisor')
+
+    rpc.mockResolvedValue({ data: { status: 'forbidden' }, error: null })
+    await expect(updateRemoteFicheMetadata('fiche-1', makeFiche())).rejects.toThrow(
+      'Mise à jour des métadonnées refusée par le serveur',
+    )
   })
 
   it('lists only the field groups that differ in a conflict', async () => {
@@ -213,6 +328,20 @@ describe('synchronisation Supabase', () => {
       ficheLabel: '2026-08-14T20:00 — SM4BAT — Étang de la Hulotte',
       fields: [],
     })
+  })
+
+  it('reports metadata differences in a conflict', async () => {
+    const local = makeFiche()
+    const remote = makeFiche({
+      tauxEchantillonnageKhz: 500,
+      programmeEnregistrement: ['Enregistrements continus'],
+    })
+    const conflict = await buildSyncConflict(local, remote)
+    expect(conflict.fields.map((field) => field.field)).toEqual(['Métadonnées'])
+    const metadata = conflict.fields[0]
+    expect(metadata.local).toContain('256')
+    expect(metadata.remote).toContain('500')
+    expect(metadata.remote).toContain('Enregistrements continus')
   })
 
   it('clears stored conflicts', () => {

@@ -1,7 +1,22 @@
 export const DRAFT_KEY = 'acoustifield_draft_v1'
 export const LAST_PROJECT_KEY = 'acoustifield_last_project_v1'
 
-export interface FicheData {
+export interface FicheMetadata {
+  programmeEnregistrement: string[]
+  tauxEchantillonnageKhz: number | null
+  freqDeclenchementMinKhz: number | null
+  freqDeclenchementMaxKhz: number | null
+  dureeInterPulsS: number | null
+  gainDb: number | null
+  dureeMaxSequenceS: number | null
+  parametreFiltration: string
+  moulinette: string
+  moulinetteAutre: string
+  destinBruits: string
+  destinBruitsAutre: string
+}
+
+export interface FicheData extends FicheMetadata {
   id: string
   ownerId: string
   appareilType: string
@@ -40,7 +55,7 @@ export interface FicheData {
   syncError: string | null
 }
 
-export interface FicheDraft {
+export interface FicheDraft extends FicheMetadata {
   id?: string
   appareilType: string
   boitierNum: string
@@ -169,6 +184,30 @@ export const LUMINOSITES = [
   'Nuit noire',
 ] as const
 
+export const PROGRAMMES_ENREGISTREMENT = [
+  'Du coucher au lever du soleil',
+  '½ h avant le coucher du soleil',
+  '½ h après le lever du soleil',
+  'Enregistrements continus',
+] as const
+
+export const TAUX_ECHANTILLONNAGE_KHZ = [192, 256, 384, 500] as const
+export const TAUX_ECHANTILLONNAGE_PAR_DEFAUT = 256
+
+export const MOULINETTES = [
+  'SonoChiro',
+  'BatDetect2',
+  'Kaleidoscope',
+  'BattyBirdNet',
+  'Autre',
+] as const
+
+export const DESTINS_BRUITS = [
+  'Suppression',
+  'Parasite',
+  'Autre',
+] as const
+
 export function computeNbNuitsEcoute(pose: string, recherche: string): number | null {
   if (!pose || !recherche) return null
   const d1 = new Date(pose)
@@ -213,6 +252,18 @@ export function defaultFiche(ownerId: string): FicheData {
     typeNuit: '',
     conditionsMeteo: [],
     commentaires: '',
+    programmeEnregistrement: [],
+    tauxEchantillonnageKhz: TAUX_ECHANTILLONNAGE_PAR_DEFAUT,
+    freqDeclenchementMinKhz: null,
+    freqDeclenchementMaxKhz: null,
+    dureeInterPulsS: null,
+    gainDb: null,
+    dureeMaxSequenceS: null,
+    parametreFiltration: '',
+    moulinette: '',
+    moulinetteAutre: '',
+    destinBruits: '',
+    destinBruitsAutre: '',
     createdAt: now,
     updatedAt: now,
     syncedAt: null,
@@ -253,6 +304,18 @@ export function draftFromFiche(fiche: FicheData, photoCount: number): FicheDraft
     typeNuit: fiche.typeNuit,
     conditionsMeteo: fiche.conditionsMeteo,
     commentaires: fiche.commentaires,
+    programmeEnregistrement: fiche.programmeEnregistrement,
+    tauxEchantillonnageKhz: fiche.tauxEchantillonnageKhz,
+    freqDeclenchementMinKhz: fiche.freqDeclenchementMinKhz,
+    freqDeclenchementMaxKhz: fiche.freqDeclenchementMaxKhz,
+    dureeInterPulsS: fiche.dureeInterPulsS,
+    gainDb: fiche.gainDb,
+    dureeMaxSequenceS: fiche.dureeMaxSequenceS,
+    parametreFiltration: fiche.parametreFiltration,
+    moulinette: fiche.moulinette,
+    moulinetteAutre: fiche.moulinetteAutre,
+    destinBruits: fiche.destinBruits,
+    destinBruitsAutre: fiche.destinBruitsAutre,
     photoCount,
     createdAt: fiche.createdAt,
     syncedAt: fiche.syncedAt,
@@ -301,6 +364,18 @@ export function loadDraft(): Partial<FicheDraft> | null {
       typeNuit: isString(parsed.typeNuit) ? parsed.typeNuit : '',
       conditionsMeteo: Array.isArray(parsed.conditionsMeteo) ? (parsed.conditionsMeteo as unknown[]).filter(isString) : [],
       commentaires: isString(parsed.commentaires) ? parsed.commentaires : '',
+      programmeEnregistrement: Array.isArray(parsed.programmeEnregistrement) ? (parsed.programmeEnregistrement as unknown[]).filter(isString) : [],
+      tauxEchantillonnageKhz: typeof parsed.tauxEchantillonnageKhz === 'number' && Number.isFinite(parsed.tauxEchantillonnageKhz) ? parsed.tauxEchantillonnageKhz : null,
+      freqDeclenchementMinKhz: typeof parsed.freqDeclenchementMinKhz === 'number' && Number.isFinite(parsed.freqDeclenchementMinKhz) ? parsed.freqDeclenchementMinKhz : null,
+      freqDeclenchementMaxKhz: typeof parsed.freqDeclenchementMaxKhz === 'number' && Number.isFinite(parsed.freqDeclenchementMaxKhz) ? parsed.freqDeclenchementMaxKhz : null,
+      dureeInterPulsS: typeof parsed.dureeInterPulsS === 'number' && Number.isFinite(parsed.dureeInterPulsS) ? parsed.dureeInterPulsS : null,
+      gainDb: typeof parsed.gainDb === 'number' && Number.isFinite(parsed.gainDb) ? parsed.gainDb : null,
+      dureeMaxSequenceS: typeof parsed.dureeMaxSequenceS === 'number' && Number.isFinite(parsed.dureeMaxSequenceS) ? parsed.dureeMaxSequenceS : null,
+      parametreFiltration: isString(parsed.parametreFiltration) ? parsed.parametreFiltration : '',
+      moulinette: isString(parsed.moulinette) ? parsed.moulinette : '',
+      moulinetteAutre: isString(parsed.moulinetteAutre) ? parsed.moulinetteAutre : '',
+      destinBruits: isString(parsed.destinBruits) ? parsed.destinBruits : '',
+      destinBruitsAutre: isString(parsed.destinBruitsAutre) ? parsed.destinBruitsAutre : '',
       photoCount: typeof parsed.photoCount === 'number' ? parsed.photoCount : 0,
       ...(isString(parsed.createdAt) ? { createdAt: parsed.createdAt } : {}),
       ...(isString(parsed.syncedAt) ? { syncedAt: parsed.syncedAt } : {}),
@@ -349,6 +424,23 @@ export function clearLastProject(): void {
   }
 }
 
+export function metadataIsEmpty(metadata: Partial<FicheMetadata>): boolean {
+  return !(
+    (metadata.programmeEnregistrement?.length ?? 0) > 0 ||
+    (metadata.tauxEchantillonnageKhz != null && metadata.tauxEchantillonnageKhz !== TAUX_ECHANTILLONNAGE_PAR_DEFAUT) ||
+    metadata.freqDeclenchementMinKhz != null ||
+    metadata.freqDeclenchementMaxKhz != null ||
+    metadata.dureeInterPulsS != null ||
+    metadata.gainDb != null ||
+    metadata.dureeMaxSequenceS != null ||
+    metadata.parametreFiltration ||
+    metadata.moulinette ||
+    metadata.moulinetteAutre ||
+    metadata.destinBruits ||
+    metadata.destinBruitsAutre
+  )
+}
+
 export function ficheIsEmpty(draft: Partial<FicheDraft>): boolean {
   return !(
     draft.appareilType ||
@@ -377,7 +469,8 @@ export function ficheIsEmpty(draft: Partial<FicheDraft>): boolean {
     draft.typeNuit ||
     (draft.conditionsMeteo && draft.conditionsMeteo.length > 0) ||
     draft.commentaires ||
-    (draft.photoCount ?? 0) > 0
+    (draft.photoCount ?? 0) > 0 ||
+    !metadataIsEmpty(draft)
   )
 }
 

@@ -12,7 +12,7 @@
 - [fait] Synchronisation atomique de snapshots via le RPC `sync_fiche_snapshot()` (révision distante, push forcé, conflit renvoyé sans écriture).
 - [fait] Upload des photos vers le bucket privé `photos` (dossier par utilisateur) et enregistrement des lignes `photos` en upsert ; reprise des photos restées en attente.
 - [fait] Déclencheurs de synchronisation au démarrage en ligne, au retour réseau et au clic manuel, avec revalidation Auth préalable.
-- [fait] Conflits portant sur des groupes de champs (appareil, contexte, site, milieu, météo, commentaires), stockés localement et résolus par choix explicite local/remote.
+- [fait] Conflits portant sur des groupes de champs (appareil, contexte, site, milieu, météo, commentaires, métadonnées), stockés localement et résolus par choix explicite local/remote.
 - [fait] Suppressions offline rejouées avec tombstones et conservation des erreurs.
 - [fait] Pull des fiches de l'utilisateur (import/fusion selon la révision distante) et cache superviseur local des fiches des autres enregistreurs (`remote_fiches` par compte).
 - [fait] RLS propriétaire et superviseur durcie par migrations versionnées (tables `fiches`, `photos`, `profiles`, `supervisors`).
@@ -33,6 +33,9 @@
 - [fait] Champs « N° du boîtier » et « N° du micro » annotés « (si applicable) ».
 - [fait] Liste de gestion complétée avec « Prairie - site pâturé (animaux NON présents) ».
 - [fait] Commune auto-fiabilisée : repli sur BigDataCloud dès que Nominatim ne fournit pas de commune, prise en charge des hameaux, nouvelle tentative à chaque changement de coordonnées et au retour du réseau, et champ débloqué après un enregistrement ou une réinitialisation pendant une requête.
+- [fait] Onglet « Métadonnées » facultatif sur la fiche, complété après la pose : programme d'enregistrement (choix combinables), collecte de données (taux d'échantillonnage 192/256/384/500 kHz avec 256 par défaut, fenêtre de fréquences de déclenchement 0–180 kHz à double curseur, durée inter-puls 0,1–15 s, gain 0–59,5 dB), filtrage/séquençage (durée max des séquences, paramètre de filtration, moulinette, destin des fichiers « bruits »). Section repliable ouverte par défaut si des métadonnées existent, champs partagés extraits dans `form-fields.tsx`/`metadata-fields.tsx`.
+- [fait] Édition superviseur des métadonnées des fiches des autres enregistreurs depuis le récapitulatif (bouton crayon sur les fiches distantes) via le RPC `update_fiche_metadata()` : validations de bornes côté serveur, incrément de `sync_revision`, mise à jour du cache superviseur local, et conflit résolu par le propriétaire à la prochaine synchronisation.
+- [fait] Métadonnées intégrées à la persistance locale (IndexedDB, brouillon), au snapshot synchronisé, aux exports CSV (une colonne par champ du protocole) et au détail des fiches du récapitulatif.
 
 ## Déploiement
 
@@ -42,6 +45,7 @@
 - [fait] Login Google réel concluant (fait le 14 août 2026) ; en cas de `redirect_uri_mismatch` ou d'échec d'échange de code, relire `/auth/auth-code-error` et purger le localStorage/cookies du site.
 - [fait] Migrations `202608150000_habitat_autre.sql` et `202608150001_orientation_deg.sql` appliquées manuellement au Supabase distant (fait le 15 août 2026), dans cet ordre, et vérifiées (colonnes présentes dans le Table Editor).
 - [à faire] Appliquer la migration `202608190000_pose_recherche.sql` au projet Supabase distant (colonnes `date_heure_pose`, `date_heure_recherche`, `nb_nuits_ecoute` et RPC `sync_fiche_snapshot` mis à jour) avant toute synchronisation de production.
+- [à faire] Appliquer ensuite la migration `202611100000_metadonnees.sql` au projet Supabase distant (colonnes métadonnées, `sync_fiche_snapshot` étendu et RPC `update_fiche_metadata`), après `202608190000_pose_recherche.sql` et dans cet ordre.
 - [fait] Dépôt GitHub `viomayo/acoustifield` créé (fait le 15 août 2026) et CI GitHub Actions active sur chaque push.
 - [fait] Déploiement Vercel en production : [https://acoustifield.vercel.app](https://acoustifield.vercel.app) (fait le 15 août 2026), avec `NEXT_PUBLIC_SUPABASE_URL` et `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` renseignées.
 - [fait] « Site URL » et « Redirect URLs » de Supabase (Auth > URL Configuration) configurées vers `https://acoustifield.vercel.app` (fait le 15 août 2026).

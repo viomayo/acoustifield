@@ -25,3 +25,48 @@ button, a {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
+
+/* Fenêtre de fréquences : deux curseurs superposés sur la même piste */
+.frequency-range {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  pointer-events: none;
+  height: 100%;
+}
+.frequency-range::-webkit-slider-runnable-track {
+  background: transparent;
+}
+.frequency-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  pointer-events: auto;
+  height: 1.25rem;
+  width: 1.25rem;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 3px solid var(--accent);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+  cursor: pointer;
+}
+.frequency-range::-moz-range-track {
+  background: transparent;
+}
+.frequency-range::-moz-range-thumb {
+  pointer-events: auto;
+  height: 1.25rem;
+  width: 1.25rem;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 3px solid var(--accent);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+  cursor: pointer;
+}
+.frequency-range:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--foreground);
+  outline-offset: 2px;
+}
+.frequency-range:focus-visible::-moz-range-thumb {
+  outline: 2px solid var(--foreground);
+  outline-offset: 2px;
+}

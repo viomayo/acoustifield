@@ -115,6 +115,57 @@ describe('exports', () => {
     expect(cells[at('orientation_deg')]).toBe('')
   })
 
+  it('exports the metadata columns with French decimals', () => {
+    const csv = ficheToCSV(makeFiche({
+      programmeEnregistrement: ['Du coucher au lever du soleil', 'Enregistrements continus'],
+      tauxEchantillonnageKhz: 256,
+      freqDeclenchementMinKhz: 20,
+      freqDeclenchementMaxKhz: 120,
+      dureeInterPulsS: 2.5,
+      gainDb: 12.5,
+      dureeMaxSequenceS: 5,
+      parametreFiltration: 'Passe-haut 8 kHz',
+      moulinette: 'SonoChiro',
+      moulinetteAutre: '',
+      destinBruits: 'Autre',
+      destinBruitsAutre: 'Archivage',
+    }), 0)
+    const [header, row] = csv.split('\r\n')
+    const columns = header.split(';')
+    const cells = parseCsvRow(row)
+    const at = (name: string) => columns.indexOf(name)
+    expect(cells[at('programme_enregistrement')]).toBe('Du coucher au lever du soleil|Enregistrements continus')
+    expect(cells[at('taux_echantillonnage_khz')]).toBe('256')
+    expect(cells[at('freq_declenchement_min_khz')]).toBe('20')
+    expect(cells[at('freq_declenchement_max_khz')]).toBe('120')
+    expect(cells[at('duree_inter_puls_s')]).toBe('2,5')
+    expect(cells[at('gain_db')]).toBe('12,5')
+    expect(cells[at('duree_max_sequence_s')]).toBe('5')
+    expect(cells[at('parametre_filtration')]).toBe('Passe-haut 8 kHz')
+    expect(cells[at('moulinette')]).toBe('SonoChiro')
+    expect(cells[at('moulinette_autre')]).toBe('')
+    expect(cells[at('destin_bruits')]).toBe('Autre')
+    expect(cells[at('destin_bruits_autre')]).toBe('Archivage')
+  })
+
+  it('leaves metadata cells empty when unset', () => {
+    const csv = ficheToCSV(makeFiche(), 0)
+    const [header, row] = csv.split('\r\n')
+    const columns = header.split(';')
+    const cells = parseCsvRow(row)
+    const at = (name: string) => columns.indexOf(name)
+    expect(cells[at('programme_enregistrement')]).toBe('')
+    expect(cells[at('taux_echantillonnage_khz')]).toBe('256')
+    expect(cells[at('freq_declenchement_min_khz')]).toBe('')
+    expect(cells[at('freq_declenchement_max_khz')]).toBe('')
+    expect(cells[at('duree_inter_puls_s')]).toBe('')
+    expect(cells[at('gain_db')]).toBe('')
+    expect(cells[at('duree_max_sequence_s')]).toBe('')
+    expect(cells[at('parametre_filtration')]).toBe('')
+    expect(cells[at('moulinette')]).toBe('')
+    expect(cells[at('destin_bruits')]).toBe('')
+  })
+
   it('formats decimal numbers with a comma and empty values as empty cells', () => {
     expect(decimalCell(3.5)).toBe('3,5')
     expect(decimalCell(18)).toBe('18')

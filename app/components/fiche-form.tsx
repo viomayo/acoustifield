@@ -6,6 +6,8 @@ import { useOfflineAuth } from './offline-auth-provider'
 import PhotoField from './photo-field'
 import MapModal from './map-modal'
 import CompassField from './compass-field'
+import MetadataFields from './metadata-fields'
+import { ChipGroup, SelectField, TextInput } from './form-fields'
 import {
   APPAREILS,
   CONDITIONS_METEO,
@@ -24,10 +26,12 @@ import {
   ficheIsEmpty,
   getLastProject,
   loadDraft,
+  metadataIsEmpty,
   saveDraft,
   saveLastProject,
   type FicheData,
   type FicheDraft,
+  type FicheMetadata,
 } from '@/lib/fiches'
 import { saveFiche, type PhotoData } from '@/lib/idb'
 import { reverseGeocode } from '@/lib/geo'
@@ -49,143 +53,6 @@ function Section({ title, description, children }: { title: string; description?
       </div>
       {children}
     </section>
-  )
-}
-
-function TextInput({
-  label,
-  labelHint,
-  value,
-  onChange,
-  type = 'text',
-  placeholder,
-  hint,
-  inputMode,
-  step,
-  min,
-  max,
-  readOnly,
-}: {
-  label: string
-  labelHint?: string
-  value: string
-  onChange: (value: string) => void
-  type?: string
-  placeholder?: string
-  hint?: string
-  inputMode?: 'text' | 'decimal' | 'numeric' | 'tel' | 'email'
-  step?: string
-  min?: string
-  max?: string
-  readOnly?: boolean
-}) {
-  return (
-    <label className="flex flex-col gap-1">
-      <span className="text-xs font-medium text-foreground">
-        {label}
-        {labelHint && <span className="ml-1 font-normal italic text-foreground/50">{labelHint}</span>}
-      </span>
-      <input
-        type={type}
-        value={value}
-        placeholder={placeholder}
-        inputMode={inputMode}
-        step={step}
-        min={min}
-        max={max}
-        readOnly={readOnly}
-        onChange={(e) => onChange(e.target.value)}
-        className="px-3 py-2 rounded-lg border border-foreground/10 bg-white text-sm text-foreground placeholder:text-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/40 w-full read-only:bg-foreground/5 read-only:cursor-default"
-      />
-      {hint && <span className="text-xs text-foreground/50">{hint}</span>}
-    </label>
-  )
-}
-
-function SelectField({
-  label,
-  value,
-  options,
-  onChange,
-  placeholder = '—',
-}: {
-  label: string
-  value: string
-  options: readonly string[]
-  onChange: (value: string) => void
-  placeholder?: string
-}) {
-  return (
-    <label className="flex flex-col gap-1">
-      <span className="text-xs font-medium text-foreground">{label}</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="px-3 py-2 rounded-lg border border-foreground/10 bg-white text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-foreground/40 w-full"
-      >
-        <option value="">{placeholder}</option>
-        {options.map((option) => (
-          <option key={option} value={option}>{option}</option>
-        ))}
-      </select>
-    </label>
-  )
-}
-
-function ChipGroup({
-  label,
-  options,
-  value,
-  onChange,
-  multi = false,
-  gridClassName,
-  hint,
-}: {
-  label: string
-  options: readonly string[]
-  value: string | string[]
-  onChange: (next: string | string[]) => void
-  multi?: boolean
-  gridClassName?: string
-  hint?: string
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <span className="text-xs font-medium text-foreground">{label}</span>
-      <div className={gridClassName ?? 'flex flex-wrap gap-1.5'}>
-        {options.map((option) => {
-          const selected = multi
-            ? (value as string[]).includes(option)
-            : value === option
-          return (
-            <button
-              key={option}
-              type="button"
-              onClick={() => {
-                if (multi) {
-                  const current = value as string[]
-                  onChange(
-                    current.includes(option)
-                      ? current.filter((item) => item !== option)
-                      : [...current, option],
-                  )
-                } else {
-                  onChange(value === option ? '' : option)
-                }
-              }}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors cursor-pointer flex-1 whitespace-nowrap ${
-                selected
-                  ? 'bg-accent text-white border-accent'
-                  : 'border-foreground/15 bg-white text-foreground hover:border-foreground/40'
-              }`}
-            >
-              {option}
-            </button>
-          )
-        })}
-      </div>
-      {hint && <span className="text-xs text-foreground/50">{hint}</span>}
-    </div>
   )
 }
 
@@ -219,6 +86,9 @@ export default function FicheForm() {
         (initialDraft.temperatureC != null ||
           (Array.isArray(initialDraft.conditionsMeteo) && initialDraft.conditionsMeteo.length > 0)),
     ),
+  )
+  const [metadataOpen, setMetadataOpen] = useState<boolean>(() =>
+    Boolean(initialDraft && !metadataIsEmpty(initialDraft)),
   )
   const [reverseGeocoding, setReverseGeocoding] = useState(false)
   const [savedOnce, setSavedOnce] = useState(false)
@@ -322,6 +192,7 @@ export default function FicheForm() {
     setHauteurText('')
     setTemperatureText('')
     setMeteoOpen(false)
+    setMetadataOpen(false)
     setReverseGeocoding(false)
     lastGeocoded.current = null
     showToast('Fiche enregistrée en local — pense à synchroniser', 'success')
@@ -338,6 +209,7 @@ export default function FicheForm() {
     setHauteurText('')
     setTemperatureText('')
     setMeteoOpen(false)
+    setMetadataOpen(false)
     setReverseGeocoding(false)
     lastGeocoded.current = null
     showToast('Formulaire réinitialisé', 'info')
@@ -562,6 +434,35 @@ export default function FicheForm() {
           placeholder="Remarques, éléments remarquables, accès…"
           className="px-3 py-2 rounded-lg border border-foreground/10 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-foreground/40 resize-y w-full"
         />
+      </Section>
+
+      <Section
+        title="Métadonnées"
+        description="Facultatif à la pose — peut être complété plus tard, notamment par les superviseurs."
+      >
+        {metadataOpen ? (
+          <>
+            <MetadataFields
+              metadata={fiche}
+              onChange={<K extends keyof FicheMetadata>(key: K, value: FicheMetadata[K]) => update(key, value as FicheData[K])}
+            />
+            <button
+              type="button"
+              onClick={() => setMetadataOpen(false)}
+              className="self-start text-xs font-medium text-foreground/60 underline underline-offset-2 hover:text-foreground transition-colors cursor-pointer"
+            >
+              Masquer les métadonnées
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setMetadataOpen(true)}
+            className="self-start px-3 py-2 rounded-lg text-sm font-medium border border-foreground/15 text-foreground hover:bg-foreground/5 transition-colors cursor-pointer"
+          >
+            Renseigner les métadonnées
+          </button>
+        )}
       </Section>
 
       <div className="flex flex-col sm:flex-row gap-2">

@@ -1,12 +1,18 @@
 begin;
-select plan(10);
+select plan(16);
 
 select has_schema('private', 'private helper schema exists');
 select has_function('private', 'is_supervisor', array[]::text[], 'private supervisor helper exists');
 select has_function('public', 'current_user_is_supervisor', array[]::text[], 'safe supervisor check exists');
 select has_function('public', 'sync_fiche_snapshot', array['jsonb', 'bigint', 'boolean'], 'snapshot RPC exists');
+select has_function('public', 'update_fiche_metadata', array['uuid', 'jsonb'], 'metadata RPC exists');
 select has_table('public', 'fiches', 'fiches exists');
 select has_table('public', 'photos', 'photos exists');
+select has_column('public', 'fiches', 'programme_enregistrement', 'metadata recording programme column exists');
+select has_column('public', 'fiches', 'taux_echantillonnage_khz', 'metadata sampling rate column exists');
+select has_column('public', 'fiches', 'freq_declenchement_min_khz', 'metadata trigger min frequency column exists');
+select has_column('public', 'fiches', 'freq_declenchement_max_khz', 'metadata trigger max frequency column exists');
+select has_column('public', 'fiches', 'gain_db', 'metadata gain column exists');
 select ok((select relrowsecurity from pg_class where oid = 'public.fiches'::regclass), 'fiches RLS is active');
 select ok((select relrowsecurity from pg_class where oid = 'public.photos'::regclass), 'photos RLS is active');
 select policies_are('public', 'fiches', array['fiche_delete', 'fiche_insert', 'fiche_select', 'fiche_update']);

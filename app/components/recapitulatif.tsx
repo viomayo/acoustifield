@@ -18,6 +18,8 @@ import {
   X,
 } from 'lucide-react'
 import { useOfflineAuth } from './offline-auth-provider'
+import MetadataEditorModal from './metadata-editor-modal'
+import { formatFrNumber } from './metadata-fields'
 import {
   deleteFiche,
   getFiches,
@@ -72,6 +74,7 @@ export default function Recapitulatif() {
   const [loading, setLoading] = useState(false)
   const [details, setDetails] = useState<{ fiche: FicheData | RemoteFicheData; photos: PhotoData[]; isRemote: boolean } | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<FicheData | null>(null)
+  const [metadataEdit, setMetadataEdit] = useState<RemoteFicheData | null>(null)
 
   const checkSupervisor = useCallback(async () => {
     if (!isOnlineAuthenticated) return
@@ -351,7 +354,7 @@ export default function Recapitulatif() {
       {showRemote && (
         <div className="flex flex-col gap-2">
           {remoteFiches.map((fiche) => (
-            <RemoteCard key={fiche.id} fiche={fiche} onOpen={() => openRemoteDetails(fiche)} />
+            <RemoteCard key={fiche.id} fiche={fiche} onOpen={() => openRemoteDetails(fiche)} onEditMetadata={() => setMetadataEdit(fiche)} />
           ))}
           {remoteFiches.length === 0 && (
             <p className="text-sm text-foreground/45 py-4 text-center">Aucune fiche d&apos;enregistreur chargée.</p>
@@ -416,6 +419,16 @@ export default function Recapitulatif() {
             </div>
           </div>
         </div>
+      )}
+      {metadataEdit && (
+        <MetadataEditorModal
+          fiche={metadataEdit}
+          onClose={() => setMetadataEdit(null)}
+          onSaved={async () => {
+            setMetadataEdit(null)
+            await loadRemote()
+          }}
+        />
       )}
     </main>
   )
@@ -519,7 +532,15 @@ function FicheCard({
   )
 }
 
-function RemoteCard({ fiche, onOpen }: { fiche: RemoteFicheData; onOpen: () => void }) {
+function RemoteCard({
+  fiche,
+  onOpen,
+  onEditMetadata,
+}: {
+  fiche: RemoteFicheData
+  onOpen: () => void
+  onEditMetadata: () => void
+}) {
   return (
     <div className="rounded-2xl border border-foreground/10 bg-white p-3 sm:p-4 flex items-center gap-3">
       <button type="button" onClick={onOpen} className="flex-1 flex items-center gap-3 text-left cursor-pointer">
@@ -543,6 +564,14 @@ function RemoteCard({ fiche, onOpen }: { fiche: RemoteFicheData; onOpen: () => v
         title="Voir le détail"
       >
         <Eye size={15} />
+      </button>
+      <button
+        type="button"
+        onClick={onEditMetadata}
+        className="p-2 rounded-lg text-foreground/45 hover:text-foreground hover:bg-foreground/5 transition-colors cursor-pointer"
+        title="Modifier les métadonnées"
+      >
+        <Pencil size={15} />
       </button>
     </div>
   )
@@ -601,6 +630,22 @@ function DetailsModal({
     ['Conditions', fiche.conditionsMeteo.join(', ') || '—'],
     ['Commentaires', fiche.commentaires || '—'],
   ]
+  const metadataRows: Array<[string, string]> = [
+    ['Programme d\'enregistrement', fiche.programmeEnregistrement.join(', ') || '—'],
+    ['Taux d\'échantillonnage', fiche.tauxEchantillonnageKhz != null ? `${fiche.tauxEchantillonnageKhz} kHz` : '—'],
+    [
+      'Fréquences de déclenchement',
+      fiche.freqDeclenchementMinKhz != null && fiche.freqDeclenchementMaxKhz != null
+        ? `${fiche.freqDeclenchementMinKhz} – ${fiche.freqDeclenchementMaxKhz} kHz`
+        : '—',
+    ],
+    ['Durée inter-puls', fiche.dureeInterPulsS != null ? `${formatFrNumber(fiche.dureeInterPulsS)} s` : '—'],
+    ['Gain', fiche.gainDb != null ? `${formatFrNumber(fiche.gainDb)} dB` : '—'],
+    ['Durée max des séquences', fiche.dureeMaxSequenceS != null ? `${formatFrNumber(fiche.dureeMaxSequenceS)} s` : '—'],
+    ['Paramètre de filtration', fiche.parametreFiltration || '—'],
+    ['Moulinette', [fiche.moulinette, fiche.moulinetteAutre].filter(Boolean).join(' — ') || '—'],
+    ['Destin des fichiers « bruits »', [fiche.destinBruits, fiche.destinBruitsAutre].filter(Boolean).join(' — ') || '—'],
+  ]
 
   return (
     <div className="fixed inset-0 z-[600] flex items-start justify-center pt-10 sm:pt-16 bg-black/50 overflow-y-auto">
@@ -625,6 +670,18 @@ function DetailsModal({
               </div>
             ))}
           </dl>
+
+          <div className="flex flex-col gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">Métadonnées</p>
+            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-sm">
+              {metadataRows.map(([label, value]) => (
+                <div key={label} className="contents">
+                  <dt className="text-foreground/45 whitespace-nowrap">{label}</dt>
+                  <dd className="text-foreground/85">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
 
           {(photos.length > 0 || remoteRefs.length > 0) && (
             <div>

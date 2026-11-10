@@ -1,5 +1,17 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { clearLastProject, computeNbNuitsEcoute, draftFromFiche, getLastProject, loadDraft, parseCoordinates, saveDraft, saveLastProject } from './fiches'
+import {
+  clearLastProject,
+  computeNbNuitsEcoute,
+  defaultFiche,
+  draftFromFiche,
+  ficheIsEmpty,
+  getLastProject,
+  loadDraft,
+  metadataIsEmpty,
+  parseCoordinates,
+  saveDraft,
+  saveLastProject,
+} from './fiches'
 import { parseWgs84 } from './geo'
 import { makeFiche } from './test-fixtures'
 
@@ -118,5 +130,99 @@ describe('draft', () => {
     expect(draft?.createdAt).toBe(fiche.createdAt)
     expect(draft?.syncedAt).toBe(fiche.syncedAt)
     expect(draft?.lastSyncedRemoteRevision).toBe(4)
+  })
+
+  it('round-trips metadata through the draft storage', () => {
+    const fiche = makeFiche({
+      programmeEnregistrement: ['½ h après le lever du soleil'],
+      tauxEchantillonnageKhz: 500,
+      freqDeclenchementMinKhz: 15,
+      freqDeclenchementMaxKhz: 120,
+      dureeInterPulsS: 0.1,
+      gainDb: 59.5,
+      dureeMaxSequenceS: 5,
+      parametreFiltration: 'FIR',
+      moulinette: 'BattyBirdNet',
+      moulinetteAutre: '',
+      destinBruits: 'Autre',
+      destinBruitsAutre: 'Archivage',
+    })
+    saveDraft(draftFromFiche(fiche, 0))
+    const draft = loadDraft()
+    expect(draft?.programmeEnregistrement).toEqual(['½ h après le lever du soleil'])
+    expect(draft?.tauxEchantillonnageKhz).toBe(500)
+    expect(draft?.freqDeclenchementMinKhz).toBe(15)
+    expect(draft?.freqDeclenchementMaxKhz).toBe(120)
+    expect(draft?.dureeInterPulsS).toBe(0.1)
+    expect(draft?.gainDb).toBe(59.5)
+    expect(draft?.dureeMaxSequenceS).toBe(5)
+    expect(draft?.parametreFiltration).toBe('FIR')
+    expect(draft?.moulinette).toBe('BattyBirdNet')
+    expect(draft?.destinBruits).toBe('Autre')
+    expect(draft?.destinBruitsAutre).toBe('Archivage')
+  })
+
+  it('loads a legacy draft without metadata with the default sampling rate', () => {
+    localStorage.setItem('acoustifield_draft_v1', JSON.stringify({ siteNom: 'Ancien site' }))
+    const draft = loadDraft()
+    expect(draft?.programmeEnregistrement).toEqual([])
+    expect(draft?.tauxEchantillonnageKhz).toBeNull()
+    expect(draft?.moulinette).toBe('')
+  })
+})
+
+describe('metadataIsEmpty', () => {
+  it('considers a new fiche with only the default sampling rate as empty', () => {
+    expect(metadataIsEmpty(defaultFiche('user-a'))).toBe(true)
+    expect(metadataIsEmpty(makeFiche())).toBe(true)
+  })
+
+  it('detects any filled metadata field', () => {
+    expect(metadataIsEmpty(makeFiche({ programmeEnregistrement: ['Enregistrements continus'] }))).toBe(false)
+    expect(metadataIsEmpty(makeFiche({ tauxEchantillonnageKhz: 384 }))).toBe(false)
+    expect(metadataIsEmpty(makeFiche({ freqDeclenchementMinKhz: 20 }))).toBe(false)
+    expect(metadataIsEmpty(makeFiche({ freqDeclenchementMaxKhz: 120 }))).toBe(false)
+    expect(metadataIsEmpty(makeFiche({ dureeInterPulsS: 2 }))).toBe(false)
+    expect(metadataIsEmpty(makeFiche({ gainDb: 10 }))).toBe(false)
+    expect(metadataIsEmpty(makeFiche({ dureeMaxSequenceS: 5 }))).toBe(false)
+    expect(metadataIsEmpty(makeFiche({ parametreFiltration: 'FIR' }))).toBe(false)
+    expect(metadataIsEmpty(makeFiche({ moulinette: 'SonoChiro' }))).toBe(false)
+    expect(metadataIsEmpty(makeFiche({ moulinetteAutre: 'Chirosoft' }))).toBe(false)
+    expect(metadataIsEmpty(makeFiche({ destinBruits: 'Suppression' }))).toBe(false)
+    expect(metadataIsEmpty(makeFiche({ destinBruitsAutre: 'Archivage' }))).toBe(false)
+  })
+
+  it('does not flag a fiche as empty when only metadata is filled', () => {
+    const cleared = {
+      ...draftFromFiche(makeFiche(), 0),
+      appareilType: '',
+      boitierNum: '',
+      microNum: '',
+      projet: '',
+      operateur: '',
+      dateHeurePose: '',
+      dateHeureRecherche: '',
+      siteNom: '',
+      lat: null,
+      lon: null,
+      commune: '',
+      surElement: '',
+      surElementAutre: '',
+      ouverturePaysage: '',
+      habitatPrincipal: '',
+      habitatSecondaire: '',
+      habitatPrincipalAutre: '',
+      habitatSecondaireAutre: '',
+      gestion: '',
+      eclairage: '',
+      hauteurPoseM: null,
+      orientationDeg: null,
+      temperatureC: null,
+      typeNuit: '',
+      conditionsMeteo: [] as string[],
+      commentaires: '',
+      moulinette: 'SonoChiro',
+    }
+    expect(ficheIsEmpty(cleared)).toBe(false)
   })
 })
